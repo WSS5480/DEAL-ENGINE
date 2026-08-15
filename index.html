@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#faf7f3">
+<meta name="theme-color" content="#f6f8fb">
 <title>Deal Finder — rank a whole market</title>
 <style>
-:root{--bg:#faf7f3;--bg2:#f2ece4;--card:#ffffff;--line:#e7dfd4;--line2:#d3c6b6;
---txt:#1f1a15;--txt2:#5c5148;--txt3:#8d8074;--acc:#bf5700;--good:#14714a;--warn:#9a5b08;--bad:#b3261e;--violet:#e0912c;
---mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+:root{--bg:#f6f8fb;--bg2:#eceff6;--card:#ffffff;--line:#dfe4ee;--line2:#c5cede;
+--txt:#1a2438;--txt2:#4b5670;--txt3:#7c869c;--acc:#e9782a;--good:#12785a;--warn:#96631a;--bad:#c0392f;--violet:#3c4f80;
+--navy:#222f4e;--navy2:#18223a;--onnavy:#eef2f9;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;padding-bottom:78px}
@@ -16,7 +16,7 @@ h1,h2,h3{margin:0;font-weight:680;letter-spacing:-.015em}
 button{font:inherit;cursor:pointer}
 input,select{font:inherit;color:inherit}
 
-header{position:sticky;top:0;z-index:60;background:rgba(250,247,243,.90);backdrop-filter:blur(14px);
+header{position:sticky;top:0;z-index:60;background:rgba(34,47,78,.94);backdrop-filter:blur(14px);
  border-bottom:1px solid var(--line);padding:11px 15px}
 .brand{display:flex;align-items:center;gap:9px}
 .lg{width:29px;height:29px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:15px;
@@ -27,7 +27,7 @@ header{position:sticky;top:0;z-index:60;background:rgba(250,247,243,.90);backdro
 .cnt{font-family:var(--mono);font-size:12px;color:var(--txt3)}
 
 main{padding:15px;max-width:1000px;margin:0 auto}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(31,26,21,.04),0 1px 1px rgba(31,26,21,.03);padding:15px;margin-bottom:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(26,36,56,.045),0 1px 1px rgba(26,36,56,.035);padding:15px;margin-bottom:13px}
 .card>h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin-bottom:12px;
  display:flex;align-items:center;gap:8px}
 .card>h3 .tag{margin-left:auto;text-transform:none;letter-spacing:0;font-size:11px;color:var(--txt3)}
@@ -56,7 +56,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 
 .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;overflow:auto}
 .seg button{flex:1;background:none;border:none;color:var(--txt3);padding:8px 10px;border-radius:7px;font-size:13px;font-weight:640;white-space:nowrap}
-.seg button.on{background:var(--card);color:var(--txt);box-shadow:0 1px 3px rgba(31,26,21,.10)}
+.seg button.on{background:var(--card);color:var(--txt);box-shadow:0 1px 3px rgba(26,36,56,.09)}
 
 .note{background:var(--bg2);border-left:3px solid var(--acc);border-radius:0 10px 10px 0;padding:11px 13px;
  font-size:12.5px;color:var(--txt2);line-height:1.55;margin:11px 0}
@@ -64,29 +64,29 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .note b{color:var(--txt)}
 .status{font-size:12.5px;color:var(--txt3);margin-top:10px;min-height:18px;line-height:1.5}
 .status.err{color:var(--bad)}.status.ok{color:var(--good)}
-.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(191,87,0,.22);border-top-color:var(--acc);
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(233,120,42,.24);border-top-color:var(--acc);
  border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:5px}
 @keyframes sp{to{transform:rotate(360deg)}}
 
 /* results */
 .res{display:grid;gap:9px}
-.deal{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:0 1px 2px rgba(31,26,21,.04);padding:13px 14px;cursor:pointer;
+.deal{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:0 1px 2px rgba(26,36,56,.045);padding:13px 14px;cursor:pointer;
  transition:border-color .13s,background .13s}
 .deal:hover{border-color:var(--line2)}
-.deal.open{border-color:var(--acc);background:#fff8f1}
+.deal.open{border-color:var(--acc);background:#f5f8ff}
 .dhead{display:grid;grid-template-columns:34px 1fr auto;gap:11px;align-items:center}
 .dhead:has(.tw){grid-template-columns:52px 1fr auto;gap:10px}
 .tw{position:relative;width:52px;height:52px}
 .rk{position:absolute;left:0;bottom:0;min-width:17px;height:16px;padding:0 4px;
  display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;font-weight:750;
- font-style:normal;color:#fff;background:rgba(31,26,21,.72);border-radius:8px 0 7px 0;letter-spacing:-.02em}
+ font-style:normal;color:#fff;background:rgba(26,36,56,.74);border-radius:8px 0 7px 0;letter-spacing:-.02em}
 .deal.t1 .rk{background:var(--acc)}
 .dmain{min-width:0}
 .dmain .addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dmain .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rank{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);
  font-size:13px;font-weight:750;background:var(--bg2);border:1px solid var(--line2);color:var(--txt3)}
-.deal.t1 .rank{background:rgba(20,113,74,.10);border-color:rgba(20,113,74,.34);color:var(--good)}
+.deal.t1 .rank{background:rgba(18,120,90,.10);border-color:rgba(18,120,90,.32);color:var(--good)}
 .dmain .addr{font-weight:650;font-size:15px;line-height:1.25}
 .dmain .sub{font-size:11.5px;color:var(--txt3);font-family:var(--mono);margin-top:2px}
 .dright{text-align:right}
@@ -115,7 +115,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .empty{text-align:center;padding:34px 18px;color:var(--txt3);font-size:13.5px;line-height:1.6}
 .empty b{color:var(--txt2);display:block;font-size:15px;margin-bottom:6px}
 
-footer.act{position:fixed;left:0;right:0;bottom:0;z-index:70;background:linear-gradient(0deg,#faf7f3 70%,rgba(250,247,243,.86));
+footer.act{position:fixed;left:0;right:0;bottom:0;z-index:70;background:linear-gradient(0deg,#f6f8fb 70%,rgba(246,248,251,.86));
  border-top:1px solid var(--line);padding:11px 15px calc(11px + env(safe-area-inset-bottom));display:flex;gap:9px;align-items:center}
 footer .lead{flex:1;min-width:0}
 footer .lead .t{font-size:10.5px;color:var(--txt3);font-weight:750;letter-spacing:.05em;text-transform:uppercase}
@@ -143,7 +143,7 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  border:1px solid var(--line);flex:none;max-width:100%}
 .aer img{position:absolute;width:256px;height:256px;border:0;display:block}
 .aer .pin{position:absolute;left:50%;top:50%;width:17px;height:17px;margin:-9px 0 0 -9px;
- border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1.5px rgba(31,26,21,.55),inset 0 0 0 1.5px rgba(31,26,21,.35);
+ border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1.5px rgba(26,36,56,.55),inset 0 0 0 1.5px rgba(26,36,56,.35);
  pointer-events:none}
 .aer.thumb{border-radius:8px}
 .aer.thumb .pin{width:11px;height:11px;margin:-6px 0 0 -6px;border-width:1.5px}
@@ -160,7 +160,7 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 #a2hs{position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:90;
  background:var(--card);border:1px solid var(--line2);border-radius:13px;padding:12px 13px;
- box-shadow:0 6px 22px rgba(31,26,21,.14);display:none;gap:11px;align-items:center}
+ box-shadow:0 6px 22px rgba(26,36,56,.13);display:none;gap:11px;align-items:center}
 #a2hs.on{display:flex}
 #a2hs .ai{width:34px;height:34px;border-radius:9px;flex:none}
 #a2hs .at{flex:1;min-width:0;font-size:12.5px;line-height:1.45;color:var(--txt2)}
@@ -168,6 +168,22 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #a2hs button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:8px 12px;
  font-size:12.5px;font-weight:750;flex:none}
 #a2hs .x{background:none;color:var(--txt3);font-size:19px;padding:0 4px;font-weight:600}
+
+/* the header is navy now, so everything on it flips to light */
+header{border-bottom-color:rgba(255,255,255,.10)}
+header h1{color:#fff}
+header small{color:rgba(238,242,249,.72) !important}
+header .cnt{color:rgba(238,242,249,.62)}
+.calcbtn{color:#fff !important;border-color:rgba(255,255,255,.28) !important;
+ background:rgba(255,255,255,.08)}
+.lg,.logo{background:#18223a !important;border:1px solid rgba(255,255,255,.13);
+ display:grid;place-items:center}
+/* primary action carries the brand orange; navy type on it clears 5:1 */
+.btn{background:var(--acc);color:#16203a}
+.btn.ghost{background:var(--card);color:var(--acc2)}
+#a2hs button{background:var(--acc);color:#16203a}
+.rk{background:rgba(26,36,56,.78)}
+.deal.t1 .rk{background:var(--acc);color:#16203a}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -181,8 +197,8 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 <header>
   <div class="brand">
-    <div class="lg">🎯</div>
-    <div><h1>Deal Finder</h1><small id="sub">live county records, ranked best to worst</small></div>
+    <div class="lg"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#e9782a"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
+    <div><h1>Deal Finder</h1><small id="sub">IntAIlisoft · live county records</small></div>
     <span class="sp"></span>
     <a class="calcbtn" href="calc.html">One property &rarr;</a><span class="cnt" id="cnt"></span>
   </div>
@@ -197,8 +213,8 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     <label class="f"><span>County</span><input class="inp" id="f_county" value="Hidalgo" placeholder="Hidalgo"></label>
     <label class="f"><span>City <em style="font-style:normal;opacity:.6">(optional)</em></span><input class="inp" id="f_city" value="McAllen" placeholder="McAllen" list="cityList"><datalist id="cityList"><option>McAllen</option><option>Edinburg</option><option>Mission</option><option>Pharr</option><option>Weslaco</option><option>San Juan</option><option>Donna</option><option>Mercedes</option><option>Alamo</option><option>Hidalgo</option><option>La Joya</option><option>Palmview</option><option>Alton</option></datalist></label>
   </div>
-  <label class="f" style="margin-top:10px"><span>ZIP codes <em style="font-style:normal;opacity:.6">— for pasted lists. Live county records carry no property ZIP, so live searches filter by city.</em></span>
-    <input class="inp" id="f_zips" placeholder="78501, 78503, 78504"></label>
+  <label class="f" style="margin-top:10px"><span>ZIP codes <em style="font-style:normal;opacity:.6">— pasted lists only</em></span>
+    <input class="inp" id="f_zips" placeholder="78501, 78503, 78504"><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;font-size:11px;color:var(--txt3);margin-top:5px;line-height:1.45">County records carry no property ZIP — live searches filter by city instead.</span></label>
 </div>
 
 <div class="card">

@@ -7,16 +7,16 @@
 <title>Deal Engine — Buy / Pass Analyzer</title>
 <style>
 :root{
-  --bg:#faf7f3; --bg2:#f2ece4; --card:#ffffff; --card2:#fbf7f2;
-  --line:#e7dfd4; --line2:#d3c6b6;
-  --txt:#1f1a15; --txt2:#5c5148; --txt3:#8d8074;
-  --acc:#bf5700; --acc2:#9a4600;
-  --good:#14714a; --goodbg:rgba(20,113,74,.09);
-  --warn:#9a5b08; --warnbg:rgba(154,91,8,.09);
-  --bad:#b3261e;  --badbg:rgba(179,38,30,.08);
-  --violet:#e0912c;
+  --bg:#f6f8fb; --bg2:#eceff6; --card:#ffffff; --card2:#f9fafd;
+  --line:#dfe4ee; --line2:#c5cede;
+  --txt:#1a2438; --txt2:#4b5670; --txt3:#7c869c;
+  --acc:#e9782a; --acc2:#b4550f;
+  --good:#12785a; --goodbg:rgba(18,120,90,.09);
+  --warn:#96631a; --warnbg:rgba(150,99,26,.09);
+  --bad:#c0392f;  --badbg:rgba(192,57,47,.08);
+  --violet:#3c4f80;
   --r:14px; --r2:10px;
-  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --navy:#222f4e;--navy2:#18223a;--onnavy:#eef2f9;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -33,7 +33,7 @@ input,select,textarea{font:inherit;color:inherit}
 /* ---------- shell ---------- */
 header.top{
   position:sticky;top:0;z-index:60;
-  background:linear-gradient(180deg,#faf7f3 62%,rgba(250,247,243,.84));
+  background:rgba(34,47,78,.96);
   backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);
   padding:12px 16px 0;
@@ -96,7 +96,7 @@ label.f>span em{font-style:normal;color:var(--txt3);opacity:.7}
   border-radius:var(--r2);padding:10px 11px;font-size:15px;outline:none;
   transition:border-color .12s,background .12s;
 }
-.inp:focus{border-color:var(--acc);background:#f2ece4}
+.inp:focus{border-color:var(--acc);background:#eceff6}
 select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--txt3) 50%),linear-gradient(135deg,var(--txt3) 50%,transparent 50%);background-position:calc(100% - 16px) 51%,calc(100% - 11px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
 textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:12.5px;line-height:1.5}
 .inp[type=number]{font-family:var(--mono)}
@@ -125,7 +125,7 @@ textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:1
   flex:1;background:none;border:none;color:var(--txt3);
   padding:8px 10px;border-radius:7px;font-size:13px;font-weight:600;white-space:nowrap;
 }
-.seg button.on{background:var(--card2);color:var(--txt);box-shadow:0 1px 3px rgba(31,26,21,.10)}
+.seg button.on{background:var(--card2);color:var(--txt);box-shadow:0 1px 3px rgba(26,36,56,.09)}
 
 /* ---------- KPI ---------- */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -137,9 +137,9 @@ textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:1
 .kpi .v{font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;margin-top:3px;line-height:1.15}
 .kpi .s{font-size:11.5px;color:var(--txt3);margin-top:3px}
 .kpi.good .v{color:var(--good)} .kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)}
-.kpi.good{border-color:rgba(20,113,74,.30);background:var(--goodbg)}
-.kpi.bad{border-color:rgba(179,38,30,.28);background:var(--badbg)}
-.kpi.warn{border-color:rgba(154,91,8,.26);background:var(--warnbg)}
+.kpi.good{border-color:rgba(18,120,90,.28);background:var(--goodbg)}
+.kpi.bad{border-color:rgba(192,57,47,.26);background:var(--badbg)}
+.kpi.warn{border-color:rgba(150,99,26,.24);background:var(--warnbg)}
 
 /* ---------- verdict ---------- */
 .verdict{
@@ -178,8 +178,8 @@ textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:1
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
 .ph{position:relative;aspect-ratio:4/3;border-radius:9px;overflow:hidden;background:var(--bg2);border:1px solid var(--line)}
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
-.ph .del{position:absolute;top:3px;right:3px;background:rgba(31,26,21,.30);border:none;color:#fff;border-radius:6px;width:21px;height:21px;font-size:13px;line-height:1;display:grid;place-items:center}
-.ph .rm{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(31,26,21,.42),transparent);color:#fff;font-size:10px;padding:11px 5px 3px;text-align:center;font-weight:600}
+.ph .del{position:absolute;top:3px;right:3px;background:rgba(26,36,56,.30);border:none;color:#fff;border-radius:6px;width:21px;height:21px;font-size:13px;line-height:1;display:grid;place-items:center}
+.ph .rm{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(26,36,56,.42),transparent);color:#fff;font-size:10px;padding:11px 5px 3px;text-align:center;font-weight:600}
 .drop{
   border:1.5px dashed var(--line2);border-radius:var(--r2);
   padding:22px 14px;text-align:center;color:var(--txt3);font-size:13px;
@@ -212,7 +212,7 @@ code{font-family:var(--mono);font-size:12px;background:var(--bg2);padding:1.5px 
 
 footer.act{
   position:fixed;left:0;right:0;bottom:0;z-index:70;
-  background:linear-gradient(0deg,#faf7f3 68%,rgba(250,247,243,.86));
+  background:linear-gradient(0deg,#f6f8fb 68%,rgba(246,248,251,.86));
   border-top:1px solid var(--line);padding:11px 16px calc(11px + env(safe-area-inset-bottom));
   display:flex;gap:9px;align-items:center;
 }
@@ -225,7 +225,7 @@ details.acc>summary::-webkit-details-marker{display:none}
 details.acc>summary::before{content:"▸ ";color:var(--txt3)}
 details.acc[open]>summary::before{content:"▾ "}
 details.acc .bd{padding:0 13px 13px}
-.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(191,87,0,.22);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(233,120,42,.24);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .status{font-size:12px;color:var(--txt3);margin-top:9px;min-height:17px;line-height:1.5}
 .status.err{color:var(--bad)} .status.ok{color:var(--good)}
@@ -237,7 +237,7 @@ details.acc .bd{padding:0 13px 13px}
 }
 #a2hs{position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:90;
  background:var(--card);border:1px solid var(--line2);border-radius:13px;padding:12px 13px;
- box-shadow:0 6px 22px rgba(31,26,21,.14);display:none;gap:11px;align-items:center}
+ box-shadow:0 6px 22px rgba(26,36,56,.13);display:none;gap:11px;align-items:center}
 #a2hs.on{display:flex}
 #a2hs .ai{width:34px;height:34px;border-radius:9px;flex:none}
 #a2hs .at{flex:1;min-width:0;font-size:12.5px;line-height:1.45;color:var(--txt2)}
@@ -245,6 +245,31 @@ details.acc .bd{padding:0 13px 13px}
 #a2hs button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:8px 12px;
  font-size:12.5px;font-weight:750;flex:none}
 #a2hs .x{background:none;color:var(--txt3);font-size:19px;padding:0 4px;font-weight:600}
+
+/* the header is navy now, so everything on it flips to light */
+header{border-bottom-color:rgba(255,255,255,.10)}
+header h1{color:#fff}
+header small{color:rgba(238,242,249,.72) !important}
+header .cnt{color:rgba(238,242,249,.62)}
+.calcbtn{color:#fff !important;border-color:rgba(255,255,255,.28) !important;
+ background:rgba(255,255,255,.08)}
+.lg,.logo{background:#18223a !important;border:1px solid rgba(255,255,255,.13);
+ display:grid;place-items:center}
+/* primary action carries the brand orange; navy type on it clears 5:1 */
+.btn{background:var(--acc);color:#16203a}
+.btn.ghost{background:var(--card);color:var(--acc2)}
+#a2hs button{background:var(--acc);color:#16203a}
+.rk{background:rgba(26,36,56,.78)}
+.deal.t1 .rk{background:var(--acc);color:#16203a}
+
+/* the calculator's header is the same navy bar, tabs and all */
+header.top{border-bottom-color:rgba(255,255,255,.10)}
+nav.tabs button{color:rgba(238,242,249,.60)}
+nav.tabs button.on{color:#fff;border-bottom-color:var(--acc)}
+.verdictchip{border-color:rgba(255,255,255,.22) !important;background:rgba(255,255,255,.09) !important;color:#eef2f9 !important}
+.verdictchip.good{background:rgba(18,120,90,.34) !important;border-color:rgba(120,225,185,.42) !important;color:#8fe8c5 !important}
+.verdictchip.warn{background:rgba(150,99,26,.36) !important;border-color:rgba(240,200,130,.40) !important;color:#f5d296 !important}
+.verdictchip.bad{background:rgba(192,57,47,.34) !important;border-color:rgba(255,160,150,.42) !important;color:#ffb6ae !important}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -257,7 +282,7 @@ details.acc .bd{padding:0 13px 13px}
 <body>
 <header class="top">
   <div class="brand">
-    <div class="logo">🏚️</div>
+    <div class="logo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#e9782a"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
     <div>
       <h1>Deal Engine</h1>
       <small id="brandSub">no property loaded</small>
