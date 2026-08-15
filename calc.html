@@ -270,6 +270,16 @@ nav.tabs button.on{color:#fff;border-bottom-color:var(--acc)}
 .verdictchip.good{background:rgba(18,120,90,.34) !important;border-color:rgba(120,225,185,.42) !important;color:#8fe8c5 !important}
 .verdictchip.warn{background:rgba(150,99,26,.36) !important;border-color:rgba(240,200,130,.40) !important;color:#f5d296 !important}
 .verdictchip.bad{background:rgba(192,57,47,.34) !important;border-color:rgba(255,160,150,.42) !important;color:#ffb6ae !important}
+
+/* iOS Safari force-zooms into any input whose text is under 16px and never zooms
+   back out — that is the pinch-to-recover you hit on a phone. 16px everywhere a
+   caret can land is the entire fix. The .tbl rule below was inheriting 13.5px
+   into the comps inputs, which is exactly the kind of thing that hides. */
+input,select,textarea,
+.inp,select.inp,textarea.inp,
+.tbl input,.tbl select,.tbl .inp,
+label.f.sm2 .inp{font-size:16px !important}
+label.f.sm2 .inp{padding:8px 9px}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">

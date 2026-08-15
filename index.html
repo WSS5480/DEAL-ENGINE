@@ -200,6 +200,16 @@ label.f.sm2>span{font-size:9.5px}
 label.f.sm2 .inp{padding:7px 9px;font-size:13px}
 #buildTag{text-align:center;font-size:10.5px;color:var(--txt3);margin:16px 0 4px;letter-spacing:.02em}
 #buildTag a{color:var(--acc2);font-weight:700}
+
+/* iOS Safari force-zooms into any input whose text is under 16px and never zooms
+   back out — that is the pinch-to-recover you hit on a phone. 16px everywhere a
+   caret can land is the entire fix. The .tbl rule below was inheriting 13.5px
+   into the comps inputs, which is exactly the kind of thing that hides. */
+input,select,textarea,
+.inp,select.inp,textarea.inp,
+.tbl input,.tbl select,.tbl .inp,
+label.f.sm2 .inp{font-size:16px !important}
+label.f.sm2 .inp{padding:8px 9px}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -356,7 +366,7 @@ label.f.sm2 .inp{padding:7px 9px;font-size:13px}
 </div>
 
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-15 · 7 · Hidalgo + Cameron wired · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-15 · 8 · Hidalgo + Cameron wired · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
