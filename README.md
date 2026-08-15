@@ -1,1 +1,122 @@
+# Deal Engine
 
+Two pages and a scraper for buying houses on numbers instead of feel.
+
+| File | What it is |
+|---|---|
+| `index.html` | **Deal Finder.** Pulls live county appraisal records, filters them to your buy box, ranks every parcel best to worst, and gives you a walk-in offer for each. This is the front door. |
+| `calc.html` | **Deal Engine.** Single-property underwriter — flip, rental, BRRRR and wholesale side by side, with a photo-based rehab estimator and a comps/ARV builder. Use it on the deal the Finder puts at the top. |
+| `county_scraper.py` | Python 3, standard library only. Runs the same county queries from a computer when a county's server won't answer a browser directly, and builds absentee-owner mailing lists. |
+| `docs/` | The McAllen market plan, the week-one execution kit, a setup guide, and the pipeline tracker spreadsheet. |
+
+No build step. No dependencies. No API keys. Every page is a single self-contained HTML file — open one from your desktop and it works offline (minus the live county lookup).
+
+---
+
+## Deploy it
+
+### Render
+
+1. Push this repo to GitHub.
+2. Render → **New → Static Site** → pick this repo.
+3. Leave **Build Command** empty. Set **Publish Directory** to `.`
+4. Create.
+
+`render.yaml` is included, so if you use Render's Blueprint flow instead, it configures itself.
+
+### Anywhere else
+
+Netlify, Cloudflare Pages, GitHub Pages, or an S3 bucket — same story. Publish the repo root. There is nothing to build.
+
+For **GitHub Pages**: Settings → Pages → Source: `main`, folder `/ (root)`. Live in about a minute at `https://<you>.github.io/DEAL-ENGINE/`.
+
+---
+
+## Where the data comes from
+
+The Finder reads the **Hidalgo County Appraisal District 2026 certified roll**, published by the county on ArcGIS Online. 331,344 parcels. Public, no key, no login.
+
+```
+https://services9.arcgis.com/dwMDP55HTfoj4n1c/arcgis/rest/services/HCAD_PARCELS_2026/FeatureServer/1/query
+```
+
+Fields it uses:
+
+| Purpose | Field |
+|---|---|
+| Property address | `situs` |
+| Owner name | `name` |
+| Owner mailing address | `addrDeliveryLine`, `addrCity`, `addrState`, `addrZip` |
+| Living square footage | `imprvMainArea` |
+| Year built | `imprvActualYearBuilt` |
+| County market value | `marketValue` |
+| Property class | `stateCd` (`A1` = single family) |
+| Exemptions | `exemptions` |
+| City filter | `taxingUnits` |
+
+**On the city filter.** Roughly a quarter of `situs` values omit the city and read just `", TX"`, so filtering on the address text silently drops a quarter of the market. The taxing-unit code is exact, so that's what the page filters on:
+
+| Code | City | | Code | City |
+|---|---|---|---|---|
+| CML | McAllen | | CDN | Donna |
+| CEB | Edinburg | | CMC | Mercedes |
+| CMS | Mission | | CAO | Alamo |
+| CPR | Pharr | | CHD | Hidalgo |
+| CWL | Weslaco | | CLJ | La Joya |
+| CSJ | San Juan | | CPM | Palmview |
+| | | | CAN | Alton |
+
+To wire up a different county, add an entry to the `SRC` object near the bottom of `index.html`. Counties that aren't hand-mapped fall back to automatic discovery through the ArcGIS Hub catalog, which works often enough to be worth trying.
+
+### What it will never touch
+
+Zillow, Redfin, Realtor.com, and the MLS. Their terms forbid scraping and they ban aggressively. Everything here is public county appraisal data, which is exactly what the county publishes it for. If you want listing-side data, buy it from a licensed API — RentCast has a free tier that's enough to start.
+
+---
+
+## How the ranking works
+
+Two offer numbers get computed, and the **lower** one wins:
+
+**The 70% rule** — `ARV × 0.70 − rehab`. Fast, conventional, what the seller's other buyer is probably using.
+
+**Profit-backed** — solve for the purchase price that leaves exactly your target profit after every real cost: selling costs, rehab, holding, points, interest, taxes, insurance.
+
+```
+        ARV × (1 − sell%) − rehab − carry − rehabFinanced × k − targetProfit
+price = ───────────────────────────────────────────────────────────────────
+                     1 + buyClose% + (1 − down%) × k
+
+        where k = points% + (rate%/12) × holdMonths
+```
+
+The score out of 100 weighs six things:
+
+| Weight | Factor | Why |
+|---:|---|---|
+| 28 | Discount needed off the county's value | The single best predictor of whether a seller ever says yes |
+| 20 | No homestead exemption | Nobody living in the house is mailing you back |
+| 8 | Owner mails to another town | Those are the ones who sell |
+| 16 | Dollars of profit vs. your target | |
+| 15 | Rehab as a share of finished value | Rehab risk |
+| 13 | Rental cash flow | Can you hold it if the flip stalls |
+
+Two multiplicative penalties: rehab over your stated ceiling cuts the score by 45%, and needing more than 55% off cuts it by 65%. Nobody signs that.
+
+**Read the scores as relative, not absolute.** In McAllen almost nothing clears 60, and that isn't a bug in the math — it's a 0.71% rent-to-price ratio against a 1.78% property tax rate. The ranking tells you which doors are worth a stamp, not which ones are layups.
+
+---
+
+## The scraper
+
+```bash
+python3 county_scraper.py --help
+
+# absentee-owner list, ready to paste into the Finder's "Paste list" tab
+python3 county_scraper.py --list --county hidalgo --city mcallen --out leads.csv
+
+# local proxy, for counties whose servers refuse browser requests
+python3 county_scraper.py --serve 8080
+```
+
+Python 3.8+. No pip install — standard library only.

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#faf7f3">
+<title>Deal Finder — rank a whole market</title>
+<style>
+:root{--bg:#faf7f3;--bg2:#f2ece4;--card:#ffffff;--line:#e7dfd4;--line2:#d3c6b6;
+--txt:#1f1a15;--txt2:#5c5148;--txt3:#8d8074;--acc:#bf5700;--good:#14714a;--warn:#9a5b08;--bad:#b3261e;--violet:#e0912c;
+--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;padding-bottom:78px}
+h1,h2,h3{margin:0;font-weight:680;letter-spacing:-.015em}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit;color:inherit}
+
+header{position:sticky;top:0;z-index:60;background:rgba(250,247,243,.90);backdrop-filter:blur(14px);
+ border-bottom:1px solid var(--line);padding:11px 15px}
+.brand{display:flex;align-items:center;gap:9px}
+.lg{width:29px;height:29px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:15px;
+ background:linear-gradient(140deg,var(--acc),var(--violet))}
+.brand h1{font-size:16px}
+.brand small{display:block;color:var(--txt3);font-size:11px;font-weight:600}
+.brand .sp{flex:1}
+.cnt{font-family:var(--mono);font-size:12px;color:var(--txt3)}
+
+main{padding:15px;max-width:1000px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(31,26,21,.04),0 1px 1px rgba(31,26,21,.03);padding:15px;margin-bottom:13px}
+.card>h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin-bottom:12px;
+ display:flex;align-items:center;gap:8px}
+.card>h3 .tag{margin-left:auto;text-transform:none;letter-spacing:0;font-size:11px;color:var(--txt3)}
+
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:560px){.g3{grid-template-columns:1fr 1fr}}
+label.f{display:block}
+label.f>span{display:block;font-size:10.5px;font-weight:700;color:var(--txt3);margin-bottom:4px;letter-spacing:.03em;text-transform:uppercase}
+.inp{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 11px;
+ font-size:15px;outline:none;transition:border-color .12s}
+.inp:focus{border-color:var(--acc)}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--txt3) 50%),linear-gradient(135deg,var(--txt3) 50%,transparent 50%);
+ background-position:calc(100% - 16px) 51%,calc(100% - 11px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+.inp[type=number]{font-family:var(--mono)}
+.pre{position:relative}.pre .inp{padding-left:23px}
+.pre::before{content:"$";position:absolute;left:11px;top:31px;color:var(--txt3);font-size:14px}
+
+.btn{background:var(--acc);color:#ffffff;border:none;border-radius:10px;padding:11px 16px;font-weight:750;font-size:14.5px}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:var(--bg2);color:var(--txt);border:1px solid var(--line2)}
+.btn.sm{padding:8px 12px;font-size:13px}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;pointer-events:none}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+.seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;overflow:auto}
+.seg button{flex:1;background:none;border:none;color:var(--txt3);padding:8px 10px;border-radius:7px;font-size:13px;font-weight:640;white-space:nowrap}
+.seg button.on{background:var(--card);color:var(--txt);box-shadow:0 1px 3px rgba(31,26,21,.10)}
+
+.note{background:var(--bg2);border-left:3px solid var(--acc);border-radius:0 10px 10px 0;padding:11px 13px;
+ font-size:12.5px;color:var(--txt2);line-height:1.55;margin:11px 0}
+.note.warn{border-left-color:var(--warn)}.note.bad{border-left-color:var(--bad)}.note.good{border-left-color:var(--good)}
+.note b{color:var(--txt)}
+.status{font-size:12.5px;color:var(--txt3);margin-top:10px;min-height:18px;line-height:1.5}
+.status.err{color:var(--bad)}.status.ok{color:var(--good)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(191,87,0,.22);border-top-color:var(--acc);
+ border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* results */
+.res{display:grid;gap:9px}
+.deal{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:0 1px 2px rgba(31,26,21,.04);padding:13px 14px;cursor:pointer;
+ transition:border-color .13s,background .13s}
+.deal:hover{border-color:var(--line2)}
+.deal.open{border-color:var(--acc);background:#fff8f1}
+.dhead{display:grid;grid-template-columns:34px 1fr auto;gap:11px;align-items:center}
+.rank{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);
+ font-size:13px;font-weight:750;background:var(--bg2);border:1px solid var(--line2);color:var(--txt3)}
+.deal.t1 .rank{background:rgba(20,113,74,.10);border-color:rgba(20,113,74,.34);color:var(--good)}
+.dmain .addr{font-weight:650;font-size:15px;line-height:1.25}
+.dmain .sub{font-size:11.5px;color:var(--txt3);font-family:var(--mono);margin-top:2px}
+.dright{text-align:right}
+.dright .off{font-family:var(--mono);font-weight:750;font-size:16px;letter-spacing:-.02em}
+.dright .sc{font-size:10.5px;font-weight:750;letter-spacing:.04em;margin-top:2px}
+.sc.good{color:var(--good)}.sc.warn{color:var(--warn)}.sc.bad{color:var(--bad)}
+
+.body{display:none;margin-top:13px;padding-top:12px;border-top:1px solid var(--line)}
+.deal.open .body{display:block}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:8px;margin-bottom:11px}
+.kv div{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:9px 10px}
+.kv .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);font-weight:750}
+.kv .v{font-family:var(--mono);font-size:14.5px;font-weight:680;margin-top:2px}
+.led{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--line)}
+.led:last-child{border-bottom:none}
+.led b{font-family:var(--mono);font-weight:640}
+.led .l{color:var(--txt2)}
+.led.tot{border-top:1px solid var(--line2);border-bottom:none;margin-top:4px;padding-top:9px;font-weight:700}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.why{font-size:12.5px;color:var(--txt2);line-height:1.55;margin-top:10px;background:var(--bg2);
+ border-left:2.5px solid var(--line2);border-radius:0 9px 9px 0;padding:9px 12px}
+
+.bar{height:5px;border-radius:99px;background:var(--bg2);overflow:hidden;margin-top:7px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;border-radius:99px}
+
+.empty{text-align:center;padding:34px 18px;color:var(--txt3);font-size:13.5px;line-height:1.6}
+.empty b{color:var(--txt2);display:block;font-size:15px;margin-bottom:6px}
+
+footer.act{position:fixed;left:0;right:0;bottom:0;z-index:70;background:linear-gradient(0deg,#faf7f3 70%,rgba(250,247,243,.86));
+ border-top:1px solid var(--line);padding:11px 15px calc(11px + env(safe-area-inset-bottom));display:flex;gap:9px;align-items:center}
+footer .lead{flex:1;min-width:0}
+footer .lead .t{font-size:10.5px;color:var(--txt3);font-weight:750;letter-spacing:.05em;text-transform:uppercase}
+footer .lead .m{font-size:16px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em}
+textarea.inp{resize:vertical;min-height:96px;font-family:var(--mono);font-size:12px;line-height:1.5}
+details.acc{border:1px solid var(--line);border-radius:10px;background:var(--bg2);margin-top:10px}
+details.acc>summary{padding:10px 12px;font-size:12.5px;font-weight:640;color:var(--txt2);cursor:pointer;list-style:none}
+details.acc>summary::-webkit-details-marker{display:none}
+details.acc>summary::before{content:"▸ ";color:var(--txt3)}
+details.acc[open]>summary::before{content:"▾ "}
+details.acc .bd{padding:0 12px 12px}
+.cadlink{display:inline-block;margin-top:10px;font-size:12.5px;font-weight:700;color:var(--acc2);text-decoration:none;border:1px solid var(--line2);border-radius:9px;padding:7px 11px}
+.calcbtn{margin-right:10px;font-size:11.5px;font-weight:700;color:var(--acc2);text-decoration:none;border:1px solid var(--line2);border-radius:8px;padding:5px 9px;white-space:nowrap}
+
+/* the header has to survive a 390px phone with a second button in it */
+.brand>div{min-width:0}
+.brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand h1{white-space:nowrap}
+.cnt{white-space:nowrap}
+@media(max-width:470px){ .cnt{display:none} .brand small{font-size:10.5px} }
+footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="lg">🎯</div>
+    <div><h1>Deal Finder</h1><small id="sub">live county records, ranked best to worst</small></div>
+    <span class="sp"></span>
+    <a class="calcbtn" href="calc.html">One property &rarr;</a><span class="cnt" id="cnt"></span>
+  </div>
+</header>
+
+<main>
+
+<div class="card">
+  <h3>Where <span class="tag" id="mktTag"></span></h3>
+  <div class="grid g3">
+    <label class="f"><span>State</span><select class="inp" id="f_state"></select></label>
+    <label class="f"><span>County</span><input class="inp" id="f_county" value="Hidalgo" placeholder="Hidalgo"></label>
+    <label class="f"><span>City <em style="font-style:normal;opacity:.6">(optional)</em></span><input class="inp" id="f_city" value="McAllen" placeholder="McAllen" list="cityList"><datalist id="cityList"><option>McAllen</option><option>Edinburg</option><option>Mission</option><option>Pharr</option><option>Weslaco</option><option>San Juan</option><option>Donna</option><option>Mercedes</option><option>Alamo</option><option>Hidalgo</option><option>La Joya</option><option>Palmview</option><option>Alton</option></datalist></label>
+  </div>
+  <label class="f" style="margin-top:10px"><span>ZIP codes <em style="font-style:normal;opacity:.6">— for pasted lists. Live county records carry no property ZIP, so live searches filter by city.</em></span>
+    <input class="inp" id="f_zips" placeholder="78501, 78503, 78504"></label>
+</div>
+
+<div class="card">
+  <h3>Buy box</h3>
+  <div class="grid g3">
+    <label class="f"><span>Min sq ft</span><input class="inp" type="number" id="f_sqmin" value="1250"></label>
+    <label class="f"><span>Max sq ft</span><input class="inp" type="number" id="f_sqmax" value="1700"></label>
+    <label class="f"><span>Built after</span><input class="inp" type="number" id="f_yrmin" value="1965"></label>
+    <label class="f"><span>Built before</span><input class="inp" type="number" id="f_yrmax" value="1995"></label>
+    <label class="f pre"><span>Min ARV</span><input class="inp" type="number" id="f_arvmin" value="185000"></label>
+    <label class="f pre"><span>Max ARV</span><input class="inp" type="number" id="f_arvmax" value="240000"></label>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Your numbers <span class="tag">these drive every offer</span></h3>
+  <div class="grid g3">
+    <label class="f pre"><span>ARV $/sq ft</span><input class="inp" type="number" id="f_arvpsf" value="145"></label>
+    <label class="f pre"><span>Rehab $/sq ft</span><input class="inp" type="number" id="f_rehabpsf" value="36"></label>
+    <label class="f pre"><span>Target profit</span><input class="inp" type="number" id="f_target" value="35000"></label>
+    <label class="f pre"><span>Rehab ceiling</span><input class="inp" type="number" id="f_rehabmax" value="55000"></label>
+    <label class="f"><span>Rule of thumb %</span><input class="inp" type="number" id="f_rule" value="70"></label>
+    <label class="f"><span>Hold months</span><input class="inp" type="number" id="f_hold" value="6"></label>
+  </div>
+  <details class="acc"><summary>Financing &amp; costs</summary><div class="bd">
+    <div class="grid g3">
+      <label class="f"><span>Rate %</span><input class="inp" type="number" id="f_rate" value="11.5" step=".1"></label>
+      <label class="f"><span>Points %</span><input class="inp" type="number" id="f_points" value="2" step=".5"></label>
+      <label class="f"><span>Down %</span><input class="inp" type="number" id="f_down" value="15"></label>
+      <label class="f"><span>Buy close %</span><input class="inp" type="number" id="f_buyc" value="2" step=".1"></label>
+      <label class="f"><span>Sell costs %</span><input class="inp" type="number" id="f_sellc" value="8" step=".1"></label>
+      <label class="f pre"><span>Carry /mo</span><input class="inp" type="number" id="f_carry" value="380"></label>
+      <label class="f"><span>Tax rate %</span><input class="inp" type="number" id="f_taxrate" value="1.78" step=".01"></label>
+      <label class="f"><span>Rent $/sqft/mo</span><input class="inp" type="number" id="f_rentpsf" value="1.15" step=".01"></label>
+    </div>
+  </div></details>
+</div>
+
+<div class="card">
+  <h3>Where the list comes from</h3>
+  <div class="seg" id="srcSeg">
+    <button data-s="live" class="on">Live county</button>
+    <button data-s="paste">Paste list</button>
+    <button data-s="demo">Demo</button>
+  </div>
+
+  <div id="src-live" class="sb" style="margin-top:12px">
+    <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px;line-height:1.55">
+      Reads the Hidalgo County Appraisal District 2026 certified roll live — 331,344 parcels, straight from your phone. No install, no key. County records only, never Zillow or the MLS.</p>
+    <div class="row">
+      <button class="btn" id="btnRun">🔎 Find deals</button>
+      <button class="btn ghost sm" id="btnLayer">Set layer manually</button>
+    </div>
+    <div class="status" id="liveStatus"></div>
+    <details class="acc" id="layerBox" style="display:none"><summary>Parcel layer URL</summary><div class="bd">
+      <input class="inp" id="f_layer" placeholder="https://…/FeatureServer/0/query">
+      <p style="font-size:12px;color:var(--txt3);margin:8px 0 0;line-height:1.5">
+        Find it on your county's GIS open-data portal. Paste the layer's <b>/query</b> URL. Stored only in this tab.</p>
+    </div></details>
+  </div>
+
+  <div id="src-paste" class="sb" style="display:none;margin-top:12px">
+    <p style="font-size:12.5px;color:var(--txt2);margin:0 0 9px;line-height:1.55">
+      Paste output from <b>county_scraper.py</b>, an MLS export, or any CSV with a header row.
+      Needs at least <b>address</b> and <b>sqft</b>; <code style="font-family:var(--mono);font-size:11.5px">year</code>,
+      <code style="font-family:var(--mono);font-size:11.5px">cad</code>, <code style="font-family:var(--mono);font-size:11.5px">zip</code> help.</p>
+    <textarea class="inp" id="csvBox" placeholder="address,city,zip,sqft,year,cad
+1806 Ash Ave,McAllen,78501,1380,1974,152400"></textarea>
+    <div class="row" style="margin-top:9px">
+      <button class="btn" id="btnCsv">Rank these</button>
+      <button class="btn ghost sm" id="btnCsvDemo">Load sample</button>
+    </div>
+    <div class="status" id="csvStatus"></div>
+  </div>
+
+  <div id="src-demo" class="sb" style="display:none;margin-top:12px">
+    <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px;line-height:1.55">
+      24 representative McAllen parcels so you can see exactly how the ranking behaves before wiring real data.</p>
+    <button class="btn" id="btnDemo">Rank the demo set</button>
+  </div>
+</div>
+
+<div id="results"></div>
+
+</main>
+
+<footer class="act">
+  <div class="lead"><div class="t" id="footT">No list yet</div><div class="m" id="footM">—</div></div>
+  <button class="btn" id="btnTop">↑ Top</button>
+</footer>
+
+<script>
+"use strict";
+var $=function(i){return document.getElementById(i)};
+var nz=function(v){var n=parseFloat(v);return isFinite(n)?n:0};
+var pct=function(v){return nz(v)/100};
+var money=function(v){return (v<0?"-":"")+"$"+Math.abs(Math.round(v)).toLocaleString("en-US")};
+var clamp=function(v,a,b){return Math.max(a,Math.min(b,v))};
+
+var STATES=[["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],["OR","Oregon"],["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],["VA","Virginia"],["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"]];
+(function(){var s=$("f_state");s.innerHTML=STATES.map(function(a){return '<option value="'+a[0]+'">'+a[1]+'</option>'}).join("");s.value="TX";})();
+
+/* ---- offer math: identical formula to the calculator ---- */
+function maxOffer(arv,rehab,tax,o){
+  var sc=pct(o.sellc), bc=pct(o.buyc), dp=pct(o.down);
+  var k=pct(o.points)+(pct(o.rate)/12)*nz(o.hold);
+  var carry=(nz(o.carry)+tax/12)*nz(o.hold);
+  var num=arv*(1-sc)-rehab-carry-rehab*k-nz(o.target);
+  var den=1+bc+(1-dp)*k;
+  var backed=den>0?num/den:0;
+  var rule=arv*pct(o.rule)-rehab;
+  return {offer:Math.min(rule,backed),rule:rule,backed:backed,carry:carry,k:k};
+}
+function score(p,o){
+  if(p.offer<=0) return 0;
+  var s=0;
+  /* How gettable is it? The discount you need off the county's number is the
+     single biggest predictor of whether a seller ever says yes. */
+  s+=clamp(1-(p.cut-0.10)/0.45,0,1)*28;
+  /* Absentee owner — no homestead exemption on file. Nobody who lives in the
+     house is mailing you back. */
+  s+=(String(p.absentee).toUpperCase()==="Y"?1:0)*20;
+  /* Owner mails somewhere else entirely. Those are the ones who sell. */
+  s+=(p.outoftown?1:0)*8;
+  /* Money on the table. */
+  s+=clamp(p.profit/(nz(o.target)*1.6),0,1)*16;
+  /* Rehab risk as a share of finished value. */
+  s+=clamp(1-(p.rehab/Math.max(1,p.arv))/0.30,0,1)*15;
+  /* Can you hold it if the flip stalls? */
+  s+=clamp((p.cfMo+150)/450,0,1)*13;
+  if(p.rehab>nz(o.rehabmax)) s*=0.55;      // over your own ceiling
+  if(p.cut>0.55) s*=0.35;                  // nobody signs that
+  return clamp(s,0,100);
+}
+function analyse(r,o){
+  var sqft=nz(r.sqft); if(sqft<=0) return null;
+  var arv=nz(r.arv)||sqft*nz(o.arvpsf);
+  var rehab=nz(r.rehab)||sqft*nz(o.rehabpsf);
+  var cad=nz(r.cad);
+  var tax=(cad||arv*0.6)*pct(o.taxrate);
+  var m=maxOffer(arv,rehab,tax,o);
+  var P=m.offer;
+  var loan=Math.max(0,P*(1-pct(o.down))+rehab);
+  var costs=P+rehab+P*pct(o.buyc)+loan*pct(o.points)+loan*(pct(o.rate)/12)*nz(o.hold)+m.carry+arv*pct(o.sellc);
+  var profit=arv-costs;
+  var cashIn=P*pct(o.down)+P*pct(o.buyc)+loan*pct(o.points)+loan*(pct(o.rate)/12)*nz(o.hold)+m.carry;
+  var rent=Math.round(sqft*nz(o.rentpsf)/25)*25;
+  var gsi=rent*12, noi=gsi*0.93-(gsi*0.24)-tax-2800;
+  var mo=(function(L,rt,yr){if(L<=0)return 0;var i=rt/100/12,n=yr*12;return i===0?L/n:L*i/(1-Math.pow(1+i,-n))})(Math.max(0,P)*0.75,7.25,30);
+  var anchor=cad||arv*0.75;
+  var p={address:r.address||"—",city:r.city||"",zip:r.zip||"",sqft:sqft,year:nz(r.year)||"",
+    arv:arv,rehab:rehab,cad:cad,tax:tax,offer:P,rule:m.rule,backed:m.backed,
+    spread:anchor-P,cut:anchor>0?(anchor-P)/anchor:0,profit:profit,
+    margin:arv>0?profit/arv:0,cashIn:cashIn,rent:rent,cfMo:noi/12-mo,anchor:anchor,
+    owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
+    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",link:r.link||"",mailcity:r.mailcity||""};
+  p.absentee=r.absentee||"";
+  p.score=score(p,o);
+  p.flags=[];
+  if(p.rehab>nz(o.rehabmax)) p.flags.push("rehab over your ceiling");
+  if(p.year&&p.year<1965) p.flags.push("pre-1965 — cast iron and cloth wiring");
+  if(p.arv<nz(o.arvmin)||p.arv>nz(o.arvmax)) p.flags.push("ARV outside your band");
+  if(p.cut>0.55) p.flags.push("needs >55% off — nobody signs that");
+  if(p.offer<=0) p.flags.push("no offer possible — rehab eats it");
+  p.good=[];
+  if(String(p.absentee).toUpperCase()==="Y") p.good.push("no homestead exemption — owner doesn’t live there");
+  if(p.outoftown) p.good.push("owner mails to "+(p.mailcity||"another town"));
+  if(!p.good.length) p.good=null;
+  return p;
+}
+function opts(){
+  return {arvpsf:$("f_arvpsf").value,rehabpsf:$("f_rehabpsf").value,target:$("f_target").value,
+    rule:$("f_rule").value,hold:$("f_hold").value,rate:$("f_rate").value,points:$("f_points").value,
+    down:$("f_down").value,buyc:$("f_buyc").value,sellc:$("f_sellc").value,carry:$("f_carry").value,
+    taxrate:$("f_taxrate").value,rentpsf:$("f_rentpsf").value,rehabmax:$("f_rehabmax").value,
+    arvmin:$("f_arvmin").value,arvmax:$("f_arvmax").value};
+}
+function inBox(r){
+  var sq=nz(r.sqft), yr=nz(r.year);
+  if(sq<nz($("f_sqmin").value)||sq>nz($("f_sqmax").value)) return false;
+  if(yr&&(yr<nz($("f_yrmin").value)||yr>nz($("f_yrmax").value))) return false;
+  var zips=$("f_zips").value.split(",").map(function(z){return z.trim()}).filter(Boolean);
+  if(zips.length&&r.zip&&zips.indexOf(String(r.zip).trim())<0) return false;
+  return true;
+}
+
+/* ---- render ---- */
+var LIST=[];
+function render(rows,label){
+  var o=opts();
+  var out=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
+  out.sort(function(a,b){return b.score-a.score||b.spread-a.spread});
+  LIST=out;
+  $("cnt").textContent=out.length?out.length+" ranked":"";
+  var box=$("results");
+  if(!out.length){
+    box.innerHTML='<div class="card"><div class="empty"><b>Nothing matched</b>No parcels fit that buy box. Widen the sq ft or year range, or clear the ZIP filter.</div></div>';
+    $("footT").textContent="No matches";$("footM").textContent="—";return;
+  }
+  var live=out.filter(function(p){return p.score>=45&&p.offer>0});
+  $("footT").textContent=label+" · "+live.length+" worth a stamp";
+  $("footM").textContent=out[0].offer>0?money(out[0].offer)+" top offer":"—";
+  box.innerHTML='<div class="card"><h3>Ranked best to worst <span class="tag">'+out.length+' parcels · tap any row</span></h3>'+
+    '<div class="note'+(live.length?' good':' warn')+'">'+
+    (live.length? '<b>'+live.length+' of '+out.length+'</b> clear a 45+ score. Start at the top and work down — that order is spread, rehab risk, margin and rental fallback combined.'
+                : 'Nothing here clears 45. That usually means your ARV $/sqft is too low or the rehab number too high for this stock — check those two first.')+
+    '</div><div class="res" id="res"></div></div>';
+  var res=$("res");
+  out.forEach(function(p,i){
+    var cls=p.score>=65?"good":p.score>=45?"warn":"bad";
+    var d=document.createElement("div");
+    d.className="deal"+(i===0&&p.score>=45?" t1":"");
+    d.innerHTML=
+      '<div class="dhead"><div class="rank">'+(i+1)+'</div>'+
+      '<div class="dmain"><div class="addr">'+p.address+'</div>'+
+      '<div class="sub">'+(p.city?p.city+" ":"")+(p.zip||"")+' · '+Math.round(p.sqft).toLocaleString()+' sf'+(p.year?" · "+p.year:"")+'</div>'+
+      '<div class="bar"><i style="width:'+Math.max(2,p.score)+'%;background:var(--'+cls+')"></i></div></div>'+
+      '<div class="dright"><div class="off" style="color:var(--'+cls+')">'+(p.offer>0?money(p.offer):"no deal")+'</div>'+
+      '<div class="sc '+cls+'">'+Math.round(p.score)+' / 100</div></div></div>'+
+      '<div class="body">'+
+        '<div class="kv">'+
+        '<div><div class="k">ARV</div><div class="v">'+money(p.arv)+'</div></div>'+
+        '<div><div class="k">Rehab</div><div class="v">'+money(p.rehab)+'</div></div>'+
+        '<div><div class="k">County value</div><div class="v">'+(p.cad?money(p.cad):"—")+'</div></div>'+
+        '<div><div class="k">Cut needed</div><div class="v">'+(p.anchor?Math.round(p.cut*100)+"%":"—")+'</div></div>'+
+        '<div><div class="k">Flip profit</div><div class="v '+(p.profit>0?"pos":"neg")+'">'+money(p.profit)+'</div></div>'+
+        '<div><div class="k">Cash needed</div><div class="v">'+money(p.cashIn)+'</div></div>'+
+        '<div><div class="k">Rent est.</div><div class="v">'+money(p.rent)+'</div></div>'+
+        '<div><div class="k">Rental CF</div><div class="v '+(p.cfMo>0?"pos":"neg")+'">'+money(p.cfMo)+'</div></div>'+
+        '</div>'+
+        '<div class="led"><span class="l">70% rule</span><b>'+money(p.rule)+'</b></div>'+
+        '<div class="led"><span class="l">Profit-backed</span><b>'+money(p.backed)+'</b></div>'+
+        '<div class="led tot"><span class="l">Walk in at</span><b class="'+(p.offer>0?"pos":"neg")+'">'+money(p.offer)+'</b></div>'+
+        (p.owner?'<div class="led" style="margin-top:8px"><span class="l">Owner</span><b style="font-family:inherit;font-weight:600">'+p.owner+'</b></div>':"")+
+        (p.mail?'<div class="led"><span class="l">Mail to</span><b style="font-family:inherit;font-weight:600">'+p.mail+'</b></div>':"")+
+        (p.exempt?'<div class="led"><span class="l">Exemptions</span><b style="font-family:inherit;font-weight:600">'+p.exempt+'</b></div>':"")+
+        '<div class="why">'+whyText(p)+'</div>'+
+        (p.link?'<a class="cadlink" href="'+p.link+'" target="_blank" rel="noopener">Open the county record \u2197</a>':"")+
+      '</div>';
+    d.onclick=function(){d.classList.toggle("open")};
+    res.appendChild(d);
+  });
+  window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
+}
+function whyText(p){
+  var s=[];
+  if(p.offer<=0) s.push("<b>No offer works.</b> Rehab plus costs exceed what the finished house is worth.");
+  else if(p.score>=65) s.push("<b>Strong.</b> "+money(p.spread)+" between the county's value and your price, "+Math.round(p.margin*100)+"% margin.");
+  else if(p.score>=45) s.push("<b>Workable at your number.</b> Only if you get it at "+money(p.offer)+" — not a dollar more.");
+  else s.push("<b>Thin.</b> The spread doesn't justify the risk here.");
+  if(p.flags&&p.flags.length) s.push("Watch: "+p.flags.join("; ")+".");
+  if(p.good) s.push(p.good.join("; ")+".");
+  if(p.anchor) s.push("You'd need the seller "+Math.round(p.cut*100)+"% below the county's "+money(p.anchor)+".");
+  return s.join(" ");
+}
+
+/* ---- source switching ---- */
+$("srcSeg").onclick=function(e){
+  var b=e.target.closest("button[data-s]"); if(!b) return;
+  [].forEach.call($("srcSeg").children,function(x){x.classList.toggle("on",x===b)});
+  ["live","paste","demo"].forEach(function(s){$("src-"+s).style.display=(s===b.dataset.s?"block":"none")});
+};
+$("btnLayer").onclick=function(){var b=$("layerBox");b.style.display="block";b.open=true};
+$("btnTop").onclick=function(){window.scrollTo({top:0,behavior:"smooth"})};
+
+/* ---- CSV ---- */
+function parseCSV(t){
+  var lines=t.trim().split(/\r?\n/).filter(Boolean); if(lines.length<2) return [];
+  var h=lines[0].split(",").map(function(s){return s.trim().toLowerCase()});
+  var alias={situsaddress:"address",street:"address",addr:"address",propaddr:"address",
+    squarefootage:"sqft",living_area:"sqft",livingarea:"sqft",gla:"sqft",sq_ft:"sqft",
+    yearbuilt:"year",yr_blt:"year",built:"year",
+    appraisedvalue:"cad",assessedvalue:"cad",marketvalue:"cad",totalvalue:"cad",list:"cad",
+    zipcode:"zip",postal:"zip",ownername:"owner",mail_address:"mail",mailaddress:"mail"};
+  h=h.map(function(x){return alias[x]||x});
+  return lines.slice(1).map(function(l){
+    var c=l.split(","),o={}; h.forEach(function(k,i){o[k]=(c[i]||"").trim()});
+    return o;
+  }).filter(function(r){return r.address&&nz(r.sqft)>0});
+}
+$("btnCsv").onclick=function(){
+  var rows=parseCSV($("csvBox").value);
+  if(!rows.length){$("csvStatus").className="status err";$("csvStatus").textContent="Need a header row plus at least one line with an address and sqft.";return}
+  var kept=rows.filter(inBox);
+  $("csvStatus").className="status ok";
+  $("csvStatus").textContent=rows.length+" rows read, "+kept.length+" fit the buy box.";
+  render(kept.length?kept:rows,"Pasted list");
+};
+$("btnCsvDemo").onclick=function(){$("csvBox").value=DEMOCSV;};
+
+/* ---- demo set ---- */
+var DEMOCSV="address,city,zip,sqft,year,cad,owner,mail,absentee\n"+
+"1806 Ash Ave,McAllen,78501,1380,1974,152400,Villarreal R Est,P O BOX 4471,Y\n"+
+"3020 Daffodil Ave,McAllen,78501,1540,1965,168900,Cantu M,9902 Westheimer Rd Houston,Y\n"+
+"2412 Kendlewood Ave,McAllen,78504,1476,1992,228700,Trevino J,121 Lamar St Austin,Y\n"+
+"717 Pecan Blvd W,McAllen,78501,1338,1961,124800,Garza A,717 Pecan Blvd W,N\n"+
+"1105 Quince Ave,McAllen,78503,1290,1958,98600,Saenz Trust,P O BOX 887 Edinburg,Y\n"+
+"6210 Auburn Ave,McAllen,78504,2010,2004,291500,Lopez D,6210 Auburn Ave,N\n"+
+"1908 Beaumont Ave,McAllen,78501,1412,1974,158200,Ramirez L,4410 Bissonnet Houston,Y\n"+
+"810 Fir Ave,McAllen,78501,1365,1971,149800,Munoz E,810 Fir Ave,N\n"+
+"3389 Tamarack Ave,McAllen,78504,1642,1992,216600,Perez H,P O BOX 1143,Y\n"+
+"1210 Tamarack Ave,McAllen,78504,1415,1986,187800,Flores R,121 Lamar St,Y\n"+
+"1619 Kendlewood Ave,McAllen,78504,1431,1976,187600,Salinas M,P O BOX 5867,Y\n"+
+"443 Gumwood Ave,McAllen,78501,1629,1981,205800,De Leon J,7214 Lamar St,Y\n"+
+"922 Redbud Ave,McAllen,78503,1298,1969,141200,Ybarra C,922 Redbud Ave,N\n"+
+"2740 Lark Ave,McAllen,78504,1588,1988,201400,Guerra P,P O BOX 3312,Y\n"+
+"1455 Sycamore Ave,McAllen,78501,1502,1979,171900,Trevino A,1455 Sycamore Ave,N\n"+
+"3102 Fir Ave,McAllen,78504,1690,1994,223500,Alaniz D,900 Main St Dallas,Y\n"+
+"628 Quince Ave,McAllen,78503,1272,1963,134700,Sanchez R,628 Quince Ave,N\n"+
+"2255 Beaumont Ave,McAllen,78501,1348,1972,146900,Cavazos M,P O BOX 992,Y\n"+
+"1704 Daffodil Ave,McAllen,78501,1596,1983,196300,Hinojosa L,1704 Daffodil Ave,N\n"+
+"3520 Ash Ave,McAllen,78504,1462,1990,193800,Ochoa V,5511 Bellaire Houston,Y\n"+
+"1130 Pecan Blvd W,McAllen,78501,1225,1959,118400,Reyna S,1130 Pecan Blvd W,N\n"+
+"2908 Kendlewood Ave,McAllen,78504,1554,1987,199100,Barrera T,P O BOX 771,Y\n"+
+"845 Tamarack Ave,McAllen,78503,1310,1967,138600,Longoria F,845 Tamarack Ave,N\n"+
+"4015 Auburn Ave,McAllen,78504,1720,1996,241200,Vela G,2201 Kirby Houston,Y\n";
+$("btnDemo").onclick=function(){
+  var rows=parseCSV(DEMOCSV), kept=rows.filter(inBox);
+  render(kept.length?kept:rows,"Demo set");
+};
+
+/* ---- live county lookup ----------------------------------------------------
+   Verified working source. Hidalgo County Appraisal District's own 2026
+   certified roll, published by the county on ArcGIS Online. 331,344 parcels,
+   public, no key. Owner name, mailing address, living square footage, year
+   built, market value, class code and exemptions all populated.
+   Nothing here touches Zillow, Redfin or the MLS. County records only.        */
+
+var SRC={
+ "TX|HIDALGO":{
+   q:"https://services9.arcgis.com/dwMDP55HTfoj4n1c/arcgis/rest/services/HCAD_PARCELS_2026/FeatureServer/1/query",
+   label:"Hidalgo CAD 2026 certified roll",
+   f:{addr:"situs",owner:"name",mail:"addrDeliveryLine",mailcity:"addrCity",mailstate:"addrState",
+      mailzip:"addrZip",sqft:"imprvMainArea",year:"imprvActualYearBuilt",cad:"marketValue",
+      cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",unit:"taxingUnits"},
+   link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
+   classes:"'A1','A2'",       /* A1 single family, A2 mobile home with land */
+   order:"marketValue ASC",
+   /* City is NOT reliable in the situs string \u2014 about a quarter of rows read
+      just ", TX". The taxing-unit list is exact, so filter on that instead. */
+   cities:{MCALLEN:"CML",EDINBURG:"CEB",MISSION:"CMS",PHARR:"CPR",WESLACO:"CWL",
+     "SAN JUAN":"CSJ",DONNA:"CDN",MERCEDES:"CMC",ALAMO:"CAO",HIDALGO:"CHD",
+     "LA JOYA":"CLJ",PALMVIEW:"CPM",ALTON:"CAN"}
+ }
+};
+
+/* fallback field sniffing for counties we have not hand-mapped */
+var FIELD={
+ sqft:/liv.*a?r?ea|living.*sq|bldg.*sq|^gla$|heated.*a?r?ea|^sqft$|sq_?ft|finished|imprvmainarea/i,
+ year:/y(ea)?r_?_?bl?t|y(ea)?r.*buil?t|buil?t.*y(ea)?r|^yearbuilt$|actualyearbuilt/i,
+ cad:/tot.*(mkt|market|appr|assess).*va?l|^just_?value$|^market_?value$|^tot_?val|^totalvalue$|^assessed/i,
+ addr:/situs|site.*addr|prop.*addr|full.*addr|^address$|^addr/i,
+ city:/situs.*city|prop.*city|^city$/i,
+ zip:/situs.*zip|prop.*zip|^zip/i,
+ owner:/^owner|own.*name|^name1?$/i,
+ mail:/mail.*(addr|street)|own.*addr|addrdeliveryline/i
+};
+function pickField(fields,re){for(var i=0;i<fields.length;i++){if(re.test(fields[i]))return fields[i]}return null}
+function setStat(msg,cls){var s=$("liveStatus");s.className="status"+(cls?" "+cls:"");s.innerHTML=msg}
+function esc(v){return String(v).replace(/'/g,"''")}
+
+/* "3418 N 40TH LN, MCALLEN TX" -> {addr:"3418 N 40TH LN", city:"MCALLEN"} */
+function splitSitus(v){
+  var t=String(v||"").trim(); if(!t) return {addr:"",city:""};
+  var i=t.lastIndexOf(",");
+  if(i<0) return {addr:t,city:""};
+  var tail=t.slice(i+1).trim().replace(/\s+TX$/i,"").trim();
+  return {addr:t.slice(0,i).trim(),city:tail};
+}
+function titleCase(v){
+  var t=String(v||"").trim(); if(!t) return "";
+  t=t.toLowerCase().replace(/\b([a-z])/g,function(m,c){return c.toUpperCase()});
+  /* directionals and unit types stay in caps; McAllen keeps its capital A */
+  t=t.replace(/\b(N|S|E|W|Ne|Nw|Se|Sw|Nw|Fm|Us|Po|Llc|Lp|Inc|Ii|Iii|Iv|Jr|Sr)\b/g,
+      function(m){return m.toUpperCase()});
+  t=t.replace(/\bP O Box\b/gi,"PO Box");
+  t=t.replace(/\bMc([a-z])/g,function(m,c){return "Mc"+c.toUpperCase()});
+  return t;
+}
+
+async function getJSON(u){
+  var r=await fetch(u,{headers:{accept:"application/json"}});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  var j=await r.json();
+  if(j.error) throw new Error(j.error.message||"the layer refused that query");
+  return j;
+}
+async function findLayer(st,county){
+  var manual=$("f_layer").value.trim(); if(manual) return {q:manual,f:null,label:"your layer"};
+  var key=st+"|"+county.toUpperCase();
+  if(SRC[key]) return SRC[key];
+  setStat('<span class="spin"></span>Looking up '+county+' County’s parcel service…');
+  var j=await getJSON("https://hub.arcgis.com/api/v3/datasets?"+new URLSearchParams(
+        {q:county+" County "+st+" parcels","page[size]":"12"}));
+  var best=null;
+  (j.data||[]).forEach(function(d){
+    var a=d.attributes||{},nm=(a.name||"").toLowerCase(),src=a.url||a.serviceUrl||"";
+    if(!src) return;
+    var sc=0;
+    if(nm.indexOf("parcel")>=0) sc+=3;
+    if(nm.indexOf(county.toLowerCase())>=0) sc+=2;
+    if(/tax|appraisal|property|cad|assessor/.test(nm)) sc+=1;
+    if(/FeatureServer|MapServer/.test(src)) sc+=1;
+    if(!best||sc>best[0]) best=[sc,src];
+  });
+  if(!best) return null;
+  var u=best[1].replace(/\/$/,"");
+  if(!/\/\d+$/.test(u)) u+="/0";
+  return {q:u+"/query",f:null,label:county+" County"};
+}
+
+$("btnRun").onclick=async function(){ runLive(false) };
+
+async function runLive(quiet){
+  var st=$("f_state").value, county=$("f_county").value.trim(), city=$("f_city").value.trim();
+  if(!county){setStat("Type a county name first.","err");return false}
+  $("btnRun").disabled=true;
+  try{
+    var src=await findLayer(st,county);
+    if(!src){setStat("No parcel service found for "+county+" County. Open your county’s GIS portal, copy the layer’s <b>/query</b> URL, and use <b>Set layer manually</b>.","err");return false}
+    var F=src.f;
+    if(!F){
+      setStat('<span class="spin"></span>Reading the layer…');
+      var meta=await getJSON(src.q.replace(/\/query.*$/,"")+"?f=json");
+      var names=(meta.fields||[]).map(function(x){return x.name});
+      if(!names.length){setStat("That layer returned no field list. Check the URL ends in <b>/query</b>.","err");return false}
+      F={};for(var k in FIELD){F[k]=pickField(names,FIELD[k])}
+      if(!F.addr){setStat("That layer has no address field. First fields: "+names.slice(0,8).join(", "),"err");return false}
+    }
+
+    /* ---- build the where clause from the buy box ---- */
+    var w=[];
+    if(F.sqft) w.push(F.sqft+" BETWEEN "+nz($("f_sqmin").value)+" AND "+nz($("f_sqmax").value));
+    if(F.year) w.push(F.year+" BETWEEN "+nz($("f_yrmin").value)+" AND "+nz($("f_yrmax").value));
+    if(F.cad)  w.push(F.cad+" BETWEEN 15000 AND "+Math.round(nz($("f_arvmax").value)));
+    if(src.classes&&F.cls) w.push(F.cls+" IN ("+src.classes+")");
+    var code=null;
+    if(city&&src.cities) code=src.cities[city.toUpperCase().trim()];
+    if(code&&F.unit) w.push(F.unit+" LIKE '%"+code+"%'");
+    else if(city&&F.city) w.push("UPPER("+F.city+") LIKE '%"+esc(city.toUpperCase())+"%'");
+    else if(city&&F.addr) w.push("UPPER("+F.addr+") LIKE '%"+esc(city.toUpperCase())+"%'");
+
+    var outF=[];for(var kk in F){if(F[kk])outF.push(F[kk])}
+    setStat('<span class="spin"></span>Querying '+(src.label||county)+'…');
+
+    var rows=[],offset=0;
+    for(var page=0;page<3;page++){
+      var qp={where:w.length?w.join(" AND "):"1=1",
+        outFields:outF.length?outF.join(","):"*",returnGeometry:"false",
+        resultOffset:String(offset),resultRecordCount:"1000",f:"json"};
+      if(src.order) qp.orderByFields=src.order;
+      var p=new URLSearchParams(qp);
+      var r=await getJSON(src.q+"?"+p);
+      var fs=r.features||[]; if(!fs.length) break;
+      fs.forEach(function(ft){
+        var a=ft.attributes||{};
+        var sp=splitSitus(a[F.addr]);
+        var pcity=city||sp.city;
+        var mcity=F.mailcity?String(a[F.mailcity]||"").trim():"";
+        var ex=F.exempt?String(a[F.exempt]||"").trim():"";
+        var homestead=/\bHS\b/i.test(ex);
+        var out=!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase());
+        var pid=F.pid?a[F.pid]:"";
+        rows.push({
+          address:titleCase(sp.addr),city:titleCase(pcity),zip:F.mailzip&&!out?String(a[F.mailzip]||"").slice(0,5):"",
+          sqft:nz(a[F.sqft]),year:nz(a[F.year]),cad:nz(a[F.cad]),
+          owner:titleCase(a[F.owner]||""),
+          mail:titleCase([a[F.mail],mcity,F.mailstate?a[F.mailstate]:""].filter(Boolean).join(", ")),
+          mailcity:titleCase(mcity),
+          exempt:ex||(F.exempt?"none on file":""),
+          absentee:homestead?"N":"Y",outoftown:out,
+          pid:pid,link:(src.link&&pid)?src.link(pid):""
+        });
+      });
+      offset+=fs.length;
+      setStat('<span class="spin"></span>'+offset.toLocaleString()+" parcels read…");
+      if(!r.exceededTransferLimit&&fs.length<1000) break;
+    }
+
+    var usable=rows.filter(function(r){return r.address&&nz(r.sqft)>0});
+    if(!usable.length){
+      setStat("Read "+rows.length+" parcels but none carried both an address and a building size. That layer is probably boundaries only.","err");return false;
+    }
+    var kept=usable.filter(inBox);
+    setStat("<b>"+usable.length.toLocaleString()+"</b> real parcels from "+(src.label||county+" County")+
+            " · "+kept.length.toLocaleString()+" fit your buy box.","ok");
+    render(kept.length?kept:usable,(city?titleCase(city):county+" County")+" · live county records");
+    return true;
+  }catch(err){
+    var m=String(err.message||err);
+    if(/Failed to fetch|NetworkError|CORS|Load failed/i.test(m)){
+      setStat("That county’s server wouldn’t answer your browser directly (CORS). Run <b>county_scraper.py</b> on a computer and paste its CSV into <b>Paste list</b>.","err");
+    } else setStat("Query failed: "+m,"err");
+    return false;
+  } finally { $("btnRun").disabled=false; }
+}
+
+/* recompute on any input change if a list is already up */
+document.querySelectorAll(".inp").forEach(function(i){
+  i.addEventListener("change",function(){
+    if(LIST.length){ render(LIST.map(function(p){return {address:p.address,city:p.city,zip:p.zip,sqft:p.sqft,
+      year:p.year,cad:p.cad,owner:p.owner,mail:p.mail,absentee:p.absentee,outoftown:p.outoftown,
+      exempt:p.exempt,pid:p.pid,link:p.link,mailcity:p.mailcity}}),"Re-ranked"); }
+  });
+});
+$("mktTag").textContent="Hidalgo CAD \u2014 live";
+/* Load real parcels on arrival. If the county server is unreachable, fall back
+   to the demo set rather than showing an empty page. */
+(async function(){
+  var ok=await runLive(true);
+  if(!ok){ try{ $("btnDemo").click(); }catch(e){} }
+})();
+</script>
+</body>
+</html>

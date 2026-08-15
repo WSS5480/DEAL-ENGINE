@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Deal Engine — Buy / Pass Analyzer</title>
+<style>
+:root{
+  --bg:#faf7f3; --bg2:#f2ece4; --card:#ffffff; --card2:#fbf7f2;
+  --line:#e7dfd4; --line2:#d3c6b6;
+  --txt:#1f1a15; --txt2:#5c5148; --txt3:#8d8074;
+  --acc:#bf5700; --acc2:#9a4600;
+  --good:#14714a; --goodbg:rgba(20,113,74,.09);
+  --warn:#9a5b08; --warnbg:rgba(154,91,8,.09);
+  --bad:#b3261e;  --badbg:rgba(179,38,30,.08);
+  --violet:#e0912c;
+  --r:14px; --r2:10px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--txt);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  padding-bottom:90px;
+}
+h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:-.01em}
+a{color:var(--acc)}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+
+/* ---------- shell ---------- */
+header.top{
+  position:sticky;top:0;z-index:60;
+  background:linear-gradient(180deg,#faf7f3 62%,rgba(250,247,243,.84));
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  padding:12px 16px 0;
+}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.logo{
+  width:31px;height:31px;border-radius:9px;flex:none;
+  background:linear-gradient(140deg,var(--acc),var(--violet));
+  display:grid;place-items:center;font-size:16px;
+}
+.brand h1{font-size:17px;line-height:1.1}
+.brand small{display:block;color:var(--txt3);font-size:11px;font-weight:500;letter-spacing:.02em}
+.brand .spacer{flex:1}
+.verdictchip{
+  padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;
+  letter-spacing:.04em;white-space:nowrap;border:1px solid transparent;
+}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  background:none;border:none;color:var(--txt3);
+  padding:9px 12px 11px;font-size:13.5px;font-weight:600;white-space:nowrap;
+  border-bottom:2px solid transparent;
+}
+nav.tabs button.on{color:var(--txt);border-bottom-color:var(--acc)}
+
+main{padding:16px;max-width:920px;margin:0 auto}
+section.pane{display:none;animation:fade .18s ease}
+section.pane.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r);padding:15px;margin-bottom:13px;
+}
+.card>h3{
+  font-size:12px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--txt3);margin-bottom:12px;display:flex;align-items:center;gap:7px;
+}
+.card>h3 .tag{
+  margin-left:auto;text-transform:none;letter-spacing:0;font-size:11px;
+  color:var(--txt3);font-weight:600;
+}
+.hint{font-size:12px;color:var(--txt3);line-height:1.5;margin:8px 0 0}
+
+/* ---------- fields ---------- */
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:560px){.g3{grid-template-columns:1fr 1fr}}
+label.f{display:block}
+label.f>span{
+  display:block;font-size:11px;font-weight:600;color:var(--txt3);
+  margin-bottom:4px;letter-spacing:.02em;
+}
+label.f>span em{font-style:normal;color:var(--txt3);opacity:.7}
+.inp,select.inp,textarea.inp{
+  width:100%;background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r2);padding:10px 11px;font-size:15px;outline:none;
+  transition:border-color .12s,background .12s;
+}
+.inp:focus{border-color:var(--acc);background:#f2ece4}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--txt3) 50%),linear-gradient(135deg,var(--txt3) 50%,transparent 50%);background-position:calc(100% - 16px) 51%,calc(100% - 11px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+.inp[type=number]{font-family:var(--mono)}
+.pre{position:relative}
+.pre .inp{padding-left:24px}
+.pre::before{content:"$";position:absolute;left:11px;top:33px;color:var(--txt3);font-size:14px}
+.suf{position:relative}
+.suf::after{content:"%";position:absolute;right:11px;top:33px;color:var(--txt3);font-size:14px}
+.suf .inp{padding-right:26px}
+
+.btn{
+  background:var(--acc);color:#ffffff;border:none;border-radius:var(--r2);
+  padding:11px 15px;font-weight:700;font-size:14px;
+}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line2)}
+.btn.sm{padding:8px 12px;font-size:13px}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;pointer-events:none}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+/* ---------- segmented ---------- */
+.seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:3px;gap:3px;overflow:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.seg button{
+  flex:1;background:none;border:none;color:var(--txt3);
+  padding:8px 10px;border-radius:7px;font-size:13px;font-weight:600;white-space:nowrap;
+}
+.seg button.on{background:var(--card2);color:var(--txt);box-shadow:0 1px 3px rgba(31,26,21,.10)}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{
+  background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);
+  padding:12px 13px;position:relative;overflow:hidden;
+}
+.kpi .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);font-weight:700}
+.kpi .v{font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;margin-top:3px;line-height:1.15}
+.kpi .s{font-size:11.5px;color:var(--txt3);margin-top:3px}
+.kpi.good .v{color:var(--good)} .kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)}
+.kpi.good{border-color:rgba(20,113,74,.30);background:var(--goodbg)}
+.kpi.bad{border-color:rgba(179,38,30,.28);background:var(--badbg)}
+.kpi.warn{border-color:rgba(154,91,8,.26);background:var(--warnbg)}
+
+/* ---------- verdict ---------- */
+.verdict{
+  border-radius:var(--r);padding:18px;margin-bottom:13px;
+  border:1px solid var(--line);background:var(--card);
+}
+.verdict .big{font-size:31px;font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.verdict .sub{font-size:13.5px;color:var(--txt2);margin-top:7px;line-height:1.55}
+.scorebar{height:9px;border-radius:99px;background:var(--bg2);overflow:hidden;margin:14px 0 7px;border:1px solid var(--line)}
+.scorebar i{display:block;height:100%;border-radius:99px;transition:width .45s cubic-bezier(.2,.7,.3,1)}
+.scorenums{display:flex;justify-content:space-between;font-size:11px;color:var(--txt3);font-family:var(--mono)}
+
+/* ---------- table ---------- */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{
+  text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--txt3);font-weight:700;padding:0 8px 8px;border-bottom:1px solid var(--line);
+}
+.tbl td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.n{font-family:var(--mono);text-align:right;white-space:nowrap}
+.tbl th.n{text-align:right}
+.scroller{overflow-x:auto;margin:0 -15px;padding:0 15px}
+.x{background:none;border:none;color:var(--txt3);font-size:17px;line-height:1;padding:2px 5px}
+.x:active{color:var(--bad)}
+
+/* line item ledger */
+.led{display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:13.5px;border-bottom:1px dashed var(--line)}
+.led:last-child{border-bottom:none}
+.led b{font-family:var(--mono);font-weight:600;white-space:nowrap}
+.led.tot{border-top:1px solid var(--line2);border-bottom:none;margin-top:5px;padding-top:11px;font-weight:700;font-size:15px}
+.led .lbl{color:var(--txt2)}
+.led.neg b{color:var(--bad)} .led.pos b{color:var(--good)}
+
+/* ---------- photos ---------- */
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
+.ph{position:relative;aspect-ratio:4/3;border-radius:9px;overflow:hidden;background:var(--bg2);border:1px solid var(--line)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .del{position:absolute;top:3px;right:3px;background:rgba(31,26,21,.30);border:none;color:#fff;border-radius:6px;width:21px;height:21px;font-size:13px;line-height:1;display:grid;place-items:center}
+.ph .rm{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(31,26,21,.42),transparent);color:#fff;font-size:10px;padding:11px 5px 3px;text-align:center;font-weight:600}
+.drop{
+  border:1.5px dashed var(--line2);border-radius:var(--r2);
+  padding:22px 14px;text-align:center;color:var(--txt3);font-size:13px;
+  background:var(--bg2);
+}
+.drop b{color:var(--acc);font-weight:600}
+
+/* ---------- misc ---------- */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.03em}
+.pill.good{background:var(--goodbg);color:var(--good)}
+.pill.bad{background:var(--badbg);color:var(--bad)}
+.pill.warn{background:var(--warnbg);color:var(--warn)}
+.pill.mute{background:var(--bg2);color:var(--txt3)}
+.note{
+  background:var(--bg2);border-left:2.5px solid var(--acc);
+  border-radius:0 var(--r2) var(--r2) 0;padding:11px 13px;font-size:12.5px;
+  color:var(--txt2);line-height:1.6;margin:11px 0;
+}
+.note.warn{border-left-color:var(--warn)}
+.note.bad{border-left-color:var(--bad)}
+.note b{color:var(--txt)}
+code{font-family:var(--mono);font-size:12px;background:var(--bg2);padding:1.5px 5px;border-radius:5px;color:var(--acc)}
+
+.bars{display:grid;gap:9px;margin-top:6px}
+.barrow{display:grid;grid-template-columns:74px 1fr 96px;gap:9px;align-items:center;font-size:12.5px}
+.barrow .nm{color:var(--txt2);font-weight:600}
+.barrow .tr{height:22px;background:var(--bg2);border-radius:6px;position:relative;overflow:hidden;border:1px solid var(--line)}
+.barrow .tr i{position:absolute;top:0;bottom:0;border-radius:5px}
+.barrow .vl{font-family:var(--mono);text-align:right;font-weight:600;font-size:13px}
+
+footer.act{
+  position:fixed;left:0;right:0;bottom:0;z-index:70;
+  background:linear-gradient(0deg,#faf7f3 68%,rgba(250,247,243,.86));
+  border-top:1px solid var(--line);padding:11px 16px calc(11px + env(safe-area-inset-bottom));
+  display:flex;gap:9px;align-items:center;
+}
+footer.act .lead{flex:1;min-width:0}
+footer.act .lead .t{font-size:11px;color:var(--txt3);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+footer.act .lead .m{font-size:17px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em}
+details.acc{border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2);margin-top:10px}
+details.acc>summary{padding:11px 13px;font-size:13px;font-weight:600;color:var(--txt2);cursor:pointer;list-style:none}
+details.acc>summary::-webkit-details-marker{display:none}
+details.acc>summary::before{content:"▸ ";color:var(--txt3)}
+details.acc[open]>summary::before{content:"▾ "}
+details.acc .bd{padding:0 13px 13px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(191,87,0,.22);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.status{font-size:12px;color:var(--txt3);margin-top:9px;min-height:17px;line-height:1.5}
+.status.err{color:var(--bad)} .status.ok{color:var(--good)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo">🏚️</div>
+    <div>
+      <h1>Deal Engine</h1>
+      <small id="brandSub">no property loaded</small>
+    </div>
+    <div class="spacer"></div>
+    <span class="verdictchip pill mute" id="topChip">—</span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-p="prop" class="on">Property</button>
+    <button data-p="pull">Data Pull</button>
+    <button data-p="rehab">Rehab + Photos</button>
+    <button data-p="comps">Comps &amp; ARV</button>
+    <button data-p="flip">Flip</button>
+    <button data-p="rent">Rental</button>
+    <button data-p="brrrr">BRRRR</button>
+    <button data-p="whole">Wholesale</button>
+    <button data-p="verdict">Verdict</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ============ PROPERTY ============ -->
+<section class="pane on" id="p-prop">
+  <div class="card">
+    <h3>Subject property <span class="tag" id="savedTag"></span></h3>
+    <label class="f" style="margin-bottom:11px"><span>Market preset <em>— sets tax, insurance, rent, rehab index and resale speed</em></span>
+      <select class="inp" id="f_market"></select></label>
+    <div class="note" id="marketNote" style="margin-top:0;margin-bottom:12px"></div>
+    <div class="grid">
+      <label class="f"><span>Street address</span><input class="inp" id="f_addr" placeholder="1420 Maple St"></label>
+      <div class="grid g3">
+        <label class="f"><span>City</span><input class="inp" id="f_city" placeholder="Fort Worth"></label>
+        <label class="f"><span>State</span><select class="inp" id="f_state"></select></label>
+        <label class="f"><span>ZIP</span><input class="inp" id="f_zip" inputmode="numeric" placeholder="76104"></label>
+      </div>
+      <label class="f"><span>County <em>— drives the appraisal-district lookup</em></span>
+        <select class="inp" id="f_county"><option value="">select a state first</option></select></label>
+    </div>
+    <div class="row" style="margin-top:11px">
+      <button class="btn ghost sm" id="btnCAD">🔎 Open county appraisal record</button>
+      <button class="btn ghost sm" id="btnGIS">🗺️ Parcel GIS / open data</button>
+    </div>
+    <p class="hint" id="cadHint">Pick a state + county to unlock direct links to that county's appraisal district search.</p>
+  </div>
+
+  <div class="card">
+    <h3>Physical facts</h3>
+    <div class="grid g3">
+      <label class="f"><span>Beds</span><input class="inp" type="number" id="f_beds" value="3" step="1"></label>
+      <label class="f"><span>Baths</span><input class="inp" type="number" id="f_baths" value="2" step=".5"></label>
+      <label class="f"><span>Sq ft (living)</span><input class="inp" type="number" id="f_sqft" value="1450"></label>
+      <label class="f"><span>Year built</span><input class="inp" type="number" id="f_year" value="1968"></label>
+      <label class="f"><span>Lot sq ft</span><input class="inp" type="number" id="f_lot" value="7200"></label>
+      <label class="f"><span>Type</span><select class="inp" id="f_type">
+        <option>Single Family</option><option>Townhouse</option><option>Condo</option>
+        <option>Multi-Family</option><option>Manufactured</option></select></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Price &amp; county appraisal</h3>
+    <div class="grid g2">
+      <label class="f pre"><span>List / asking price</span><input class="inp" type="number" id="f_list" value="185000"></label>
+      <label class="f pre"><span>County appraised value</span><input class="inp" type="number" id="f_cad" value="171400"></label>
+      <label class="f pre"><span>Annual property tax</span><input class="inp" type="number" id="f_tax" value="4290"></label>
+      <label class="f"><span>Days on market</span><input class="inp" type="number" id="f_dom" value="47"></label>
+    </div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi" id="k_cadratio"><div class="k">List vs CAD</div><div class="v">—</div><div class="s">asking over appraised</div></div>
+      <div class="kpi" id="k_taxrate"><div class="k">Eff. tax rate</div><div class="v">—</div><div class="s">tax ÷ appraised</div></div>
+      <div class="kpi" id="k_ppsf"><div class="k">List $/sqft</div><div class="v">—</div><div class="s">asking ÷ sq ft</div></div>
+    </div>
+    <div class="note" id="cadNote" style="display:none"></div>
+  </div>
+
+  <div class="card">
+    <h3>Deal file</h3>
+    <div class="row">
+      <button class="btn ghost sm" id="btnSave">💾 Save deal</button>
+      <button class="btn ghost sm" id="btnExport">⬇︎ Export JSON</button>
+      <button class="btn ghost sm" id="btnImport">⬆︎ Import JSON</button>
+      <button class="btn ghost sm" id="btnCSV">📄 Export report CSV</button>
+      <button class="btn ghost sm" id="btnDemo">🎲 Swap demo market</button>
+      <button class="btn ghost sm" id="btnReset">↺ Reset</button>
+    </div>
+    <p class="hint">Deals are stored in this page's memory and in the JSON you export. Nothing is sent anywhere unless you turn on an API in <b>Data Pull</b>.</p>
+  </div>
+</section>
+
+<!-- ============ DATA PULL ============ -->
+<section class="pane" id="p-pull">
+  <div class="card">
+    <h3>How the data gets in</h3>
+    <div class="seg" id="srcSeg">
+      <button data-s="manual" class="on">Manual</button>
+      <button data-s="api">Listing API</button>
+      <button data-s="county">County scraper</button>
+      <button data-s="csv">CSV / MLS</button>
+    </div>
+
+    <div id="src-manual" class="srcbox" style="margin-top:13px">
+      <p class="hint">You type the numbers on the Property tab. Everything downstream still works — this is the zero-setup path.</p>
+    </div>
+
+    <div id="src-api" class="srcbox" style="display:none;margin-top:13px">
+      <label class="f"><span>Provider</span><select class="inp" id="apiProv">
+        <option value="rentcast">RentCast — records, sale listings, AVM value, rent estimate</option>
+        <option value="attom">ATTOM Data — deep property + AVM + sales history</option>
+        <option value="custom">Custom / self-hosted endpoint</option>
+      </select></label>
+      <label class="f" style="margin-top:10px"><span>API key <em>— stays in this browser tab only</em></span>
+        <input class="inp" id="apiKey" type="password" placeholder="paste key"></label>
+      <label class="f" style="margin-top:10px"><span>Base URL</span><input class="inp" id="apiBase" value="https://api.rentcast.io/v1"></label>
+      <label class="f" style="margin-top:10px"><span>Proxy prefix <em>— needed if the browser blocks CORS</em></span>
+        <input class="inp" id="apiProxy" placeholder="http://localhost:8787/proxy?url="></label>
+      <div class="row" style="margin-top:12px">
+        <button class="btn sm" id="btnPullProp">Pull property record</button>
+        <button class="btn ghost sm" id="btnPullAvm">Pull AVM + comps</button>
+        <button class="btn ghost sm" id="btnPullRent">Pull rent estimate</button>
+        <button class="btn ghost sm" id="btnPullList">Pull nearby sale listings</button>
+      </div>
+      <div class="status" id="apiStatus"></div>
+      <details class="acc"><summary>What each call maps to</summary><div class="bd">
+        <div class="led"><span class="lbl"><code>/properties</code></span><b>beds, baths, sqft, year, lot, tax, CAD value</b></div>
+        <div class="led"><span class="lbl"><code>/avm/value</code></span><b>ARV seed + comparables table</b></div>
+        <div class="led"><span class="lbl"><code>/avm/rent/long-term</code></span><b>market rent for the Rental / BRRRR tabs</b></div>
+        <div class="led"><span class="lbl"><code>/listings/sale</code></span><b>active competition + DOM</b></div>
+        <p class="hint">RentCast's free developer tier is 50 requests/month, which is enough to underwrite a couple deals a week. Keys are never written to disk by this app.</p>
+      </div></details>
+    </div>
+
+    <div id="src-county" class="srcbox" style="display:none;margin-top:13px">
+      <p class="hint">County appraisal data is the one source that's genuinely public and scrapable. Most CADs publish parcels on an ArcGIS open-data portal with a REST endpoint you can query directly.</p>
+      <label class="f" style="margin-top:10px"><span>Scraper backend URL <em>— run the included <code>county_scraper.py</code></em></span>
+        <input class="inp" id="scrBase" value="http://localhost:8787"></label>
+      <div class="row" style="margin-top:11px">
+        <button class="btn sm" id="btnScrape">⛏️ Scrape this parcel</button>
+        <button class="btn ghost sm" id="btnScrapeTest">Test connection</button>
+      </div>
+      <div class="status" id="scrStatus"></div>
+      <details class="acc"><summary>Paste raw parcel JSON instead</summary><div class="bd">
+        <textarea class="inp" id="scrPaste" placeholder='{"sqft":1450,"yearBuilt":1968,"appraisedValue":171400,"annualTax":4290,"beds":3,"baths":2,"lotSqft":7200}'></textarea>
+        <button class="btn ghost sm" id="btnScrPaste" style="margin-top:9px">Apply to property</button>
+      </div></details>
+    </div>
+
+    <div id="src-csv" class="srcbox" style="display:none;margin-top:13px">
+      <p class="hint">Export from your MLS or a list-pull, paste it here, and the app batch-scores every row. Header row required.</p>
+      <textarea class="inp" id="csvBox" style="min-height:110px" placeholder="address,city,state,zip,beds,baths,sqft,year,list,cad,rent,rehab,arv
+1420 Maple St,Fort Worth,TX,76104,3,2,1450,1968,185000,171400,1750,52000,270000"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn sm" id="btnCsvRun">Score every row</button>
+        <button class="btn ghost sm" id="btnCsvSample">Load sample</button>
+      </div>
+      <div id="csvOut" style="margin-top:13px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Straight talk on scraping</h3>
+    <div class="note warn"><b>What works:</b> county appraisal districts and parcel GIS portals. They're public record, most publish an open ArcGIS/REST feed, and nobody blocks you. That's your assessed value, sqft, year built, tax, and ownership.</div>
+    <div class="note bad"><b>What doesn't:</b> scraping Zillow, Redfin, Realtor.com or the MLS directly. They ban the IP within minutes, the HTML shifts weekly, and it breaks their terms of use. Any tool that claims otherwise breaks within a month. Use a licensed data API instead — that's what the API tab is for.</div>
+    <div class="note"><b>The practical stack:</b> county scraper for the assessment side (free) + a listings/AVM API for the market side (~free to $50/mo) + your own eyes on the photos. That combination is legal, stable, and covers everything this calculator needs.</div>
+  </div>
+</section>
+
+<!-- ============ REHAB ============ -->
+<section class="pane" id="p-rehab">
+  <div class="card">
+    <h3>Photos</h3>
+    <label class="drop" for="phIn" id="dropZone">
+      <b>Add listing photos</b><br>tap to pick, or drag &amp; drop
+      <input type="file" id="phIn" accept="image/*" multiple hidden>
+    </label>
+    <div class="photos" id="phGrid"></div>
+    <div class="row" style="margin-top:11px">
+      <button class="btn sm" id="btnAI">🤖 AI rehab estimate</button>
+      <button class="btn ghost sm" id="btnPrompt">📋 Copy prompt pack</button>
+      <button class="btn ghost sm" id="btnClearPh">Clear photos</button>
+    </div>
+    <div class="status" id="aiStatus"></div>
+    <details class="acc"><summary>AI vision setup</summary><div class="bd">
+      <label class="f"><span>Mode</span><select class="inp" id="aiMode">
+        <option value="offline">Prompt pack — free, paste into Claude yourself</option>
+        <option value="api">Direct API — needs an Anthropic key</option>
+      </select></label>
+      <label class="f" style="margin-top:10px"><span>Anthropic API key</span><input class="inp" id="aiKey" type="password" placeholder="sk-ant-..."></label>
+      <label class="f" style="margin-top:10px"><span>Proxy prefix <em>— browsers block direct calls to the Anthropic API</em></span>
+        <input class="inp" id="aiProxy" placeholder="http://localhost:8787/anthropic"></label>
+      <p class="hint">Offline mode builds a structured prompt + attaches your photos in a downloadable bundle. You drop it into a Claude chat and paste the JSON it returns back here. Costs nothing and works on any plan.</p>
+      <textarea class="inp" id="aiPaste" style="margin-top:10px;min-height:80px" placeholder='Paste the JSON Claude gives you here, then hit Apply'></textarea>
+      <button class="btn ghost sm" id="btnAiApply" style="margin-top:9px">Apply AI estimate</button>
+    </div></details>
+  </div>
+
+  <div class="card">
+    <h3>Scope of work <span class="tag" id="rehabTier"></span></h3>
+    <label class="f"><span>Overall condition</span><select class="inp" id="f_cond">
+      <option value="turnkey">Turnkey — paint &amp; clean only</option>
+      <option value="light">Light — cosmetic refresh</option>
+      <option value="medium" selected>Medium — kitchen, baths, flooring</option>
+      <option value="heavy">Heavy — systems + full gut of finishes</option>
+      <option value="gut">Full gut — down to studs</option>
+    </select></label>
+    <p class="hint">Picking a condition reloads the line items below with per-sqft defaults. Then override any line you've actually bid.</p>
+    <div class="scroller" style="margin-top:12px">
+      <table class="tbl" id="rehabTbl">
+        <thead><tr><th>Line item</th><th class="n">Cost</th><th style="width:30px"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:11px">
+      <button class="btn ghost sm" id="btnAddLine">+ Add line item</button>
+      <button class="btn ghost sm" id="btnReloadScope">↺ Reload defaults</button>
+    </div>
+    <div class="grid g3" style="margin-top:13px">
+      <label class="f"><span>Regional cost index <em>— 1.00 = national</em></span><input class="inp" type="number" id="f_rehabmult" value="1" step=".01"></label>
+      <label class="f suf"><span>Contingency</span><input class="inp" type="number" id="f_conting" value="12"></label>
+      <label class="f pre"><span>Rehab total <em>(auto)</em></span><input class="inp" type="number" id="f_rehab" value="0" readonly></label>
+    </div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi" id="k_rehabpsf"><div class="k">Rehab $/sqft</div><div class="v">—</div><div class="s">sanity check the scope</div></div>
+      <div class="kpi" id="k_rehabarv"><div class="k">Rehab % of ARV</div><div class="v">—</div><div class="s">over 25% = heavy risk</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPS ============ -->
+<section class="pane" id="p-comps">
+  <div class="card">
+    <h3>Sold comparables</h3>
+    <p class="hint">Use closed sales, same school zone, within ~1 mile and ~6 months, ±20% sqft. The app takes the median $/sqft and applies your adjustments.</p>
+    <div class="scroller" style="margin-top:12px">
+      <table class="tbl" id="compTbl">
+        <thead><tr><th>Address</th><th class="n">Sold $</th><th class="n">Sq ft</th><th class="n">$/sqft</th><th class="n">Dist mi</th><th class="n">Age d</th><th style="width:30px"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:11px">
+      <button class="btn ghost sm" id="btnAddComp">+ Add comp</button>
+      <button class="btn ghost sm" id="btnDemoComps">Load demo comps</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>ARV — after repair value</h3>
+    <div class="kpis">
+      <div class="kpi" id="k_medpsf"><div class="k">Median $/sqft</div><div class="v">—</div><div class="s">from your comps</div></div>
+      <div class="kpi" id="k_spread"><div class="k">Comp spread</div><div class="v">—</div><div class="s">tight = trustworthy</div></div>
+      <div class="kpi" id="k_conf"><div class="k">Confidence</div><div class="v">—</div><div class="s">count + tightness + recency</div></div>
+    </div>
+    <div class="grid g2" style="margin-top:13px">
+      <label class="f suf"><span>Finish-level adjustment</span><input class="inp" type="number" id="f_arvadj" value="0" step="1"></label>
+      <label class="f pre"><span>ARV <em>(auto, editable)</em></span><input class="inp" type="number" id="f_arv" value="0"></label>
+    </div>
+    <p class="hint">Adjustment is a ± % on the comp-derived value — push it up if your finish beats the comps, down for a busy road, bad lot, or a comp set that skews nicer than the subject.</p>
+    <div class="note" id="arvNote" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ============ FLIP ============ -->
+<section class="pane" id="p-flip">
+  <div class="card">
+    <h3>Offer math</h3>
+    <div class="grid g3">
+      <label class="f suf"><span>Rule-of-thumb %</span><input class="inp" type="number" id="f_rule" value="70"></label>
+      <label class="f pre"><span>Target profit</span><input class="inp" type="number" id="f_targprofit" value="35000"></label>
+      <label class="f pre"><span>Your offer</span><input class="inp" type="number" id="f_offer" value="0"></label>
+    </div>
+    <div class="kpis" style="margin-top:13px">
+      <div class="kpi" id="k_mao70"><div class="k">MAO — 70% rule</div><div class="v">—</div><div class="s">ARV × rule − rehab</div></div>
+      <div class="kpi" id="k_maoprofit"><div class="k">MAO — profit-backed</div><div class="v">—</div><div class="s">every real cost subtracted</div></div>
+      <div class="kpi" id="k_maofinal"><div class="k">Walk-in offer</div><div class="v">—</div><div class="s">the lower of the two</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Financing &amp; carry</h3>
+    <div class="grid g3">
+      <label class="f suf"><span>Down / cash %</span><input class="inp" type="number" id="f_dp" value="15"></label>
+      <label class="f suf"><span>Loan rate</span><input class="inp" type="number" id="f_hmrate" value="11.5" step=".1"></label>
+      <label class="f suf"><span>Points</span><input class="inp" type="number" id="f_points" value="2" step=".5"></label>
+      <label class="f"><span>Hold months</span><input class="inp" type="number" id="f_hold" value="6"></label>
+      <label class="f suf"><span>Buy closing</span><input class="inp" type="number" id="f_bclose" value="2" step=".1"></label>
+      <label class="f suf"><span>Sell costs</span><input class="inp" type="number" id="f_sclose" value="8" step=".1"></label>
+      <label class="f pre"><span>Monthly utilities/ins</span><input class="inp" type="number" id="f_carry" value="380"></label>
+      <label class="f"><span>Rehab financed?</span><select class="inp" id="f_rehabfin"><option value="1">Yes — lender funds draws</option><option value="0">No — out of pocket</option></select></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Flip P&amp;L</h3>
+    <div id="flipLedger"></div>
+    <div class="kpis" style="margin-top:14px">
+      <div class="kpi" id="k_fprofit"><div class="k">Net profit</div><div class="v">—</div><div class="s">after every cost</div></div>
+      <div class="kpi" id="k_fmargin"><div class="k">Margin on ARV</div><div class="v">—</div><div class="s">want 15%+</div></div>
+      <div class="kpi" id="k_froi"><div class="k">Cash-on-cash ROI</div><div class="v">—</div><div class="s">profit ÷ cash in</div></div>
+      <div class="kpi" id="k_fann"><div class="k">Annualized</div><div class="v">—</div><div class="s">ROI × 12 ÷ months</div></div>
+      <div class="kpi" id="k_fbreak"><div class="k">Breakeven sale</div><div class="v">—</div><div class="s">where profit hits zero</div></div>
+      <div class="kpi" id="k_fcash"><div class="k">Cash required</div><div class="v">—</div><div class="s">what leaves your account</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RENTAL ============ -->
+<section class="pane" id="p-rent">
+  <div class="card">
+    <h3>Income</h3>
+    <div class="grid g3">
+      <label class="f pre"><span>Market rent /mo</span><input class="inp" type="number" id="f_rent" value="1750"></label>
+      <label class="f pre"><span>Other income /mo</span><input class="inp" type="number" id="f_othinc" value="0"></label>
+      <label class="f suf"><span>Vacancy</span><input class="inp" type="number" id="f_vac" value="7" step=".5"></label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Operating expenses</h3>
+    <div class="grid g3">
+      <label class="f suf"><span>Maintenance</span><input class="inp" type="number" id="f_maint" value="8" step=".5"></label>
+      <label class="f suf"><span>CapEx reserve</span><input class="inp" type="number" id="f_capex" value="7" step=".5"></label>
+      <label class="f suf"><span>Management</span><input class="inp" type="number" id="f_mgmt" value="9" step=".5"></label>
+      <label class="f pre"><span>Insurance /yr</span><input class="inp" type="number" id="f_ins" value="2400"></label>
+      <label class="f pre"><span>HOA /mo</span><input class="inp" type="number" id="f_hoa" value="0"></label>
+      <label class="f pre"><span>Other /mo</span><input class="inp" type="number" id="f_othexp" value="0"></label>
+    </div>
+    <p class="hint">Property tax pulls from the Property tab and is re-assessed on your purchase price where the state does that.</p>
+  </div>
+  <div class="card">
+    <h3>Long-term financing</h3>
+    <div class="grid g3">
+      <label class="f suf"><span>Down payment</span><input class="inp" type="number" id="f_rdp" value="25"></label>
+      <label class="f suf"><span>Rate</span><input class="inp" type="number" id="f_rrate" value="7.25" step=".05"></label>
+      <label class="f"><span>Term yrs</span><input class="inp" type="number" id="f_rterm" value="30"></label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Rental returns</h3>
+    <div id="rentLedger"></div>
+    <div class="kpis" style="margin-top:14px">
+      <div class="kpi" id="k_cf"><div class="k">Cash flow /mo</div><div class="v">—</div><div class="s">after debt service</div></div>
+      <div class="kpi" id="k_cap"><div class="k">Cap rate</div><div class="v">—</div><div class="s">NOI ÷ all-in</div></div>
+      <div class="kpi" id="k_coc"><div class="k">Cash-on-cash</div><div class="v">—</div><div class="s">yr-1 return on cash</div></div>
+      <div class="kpi" id="k_dscr"><div class="k">DSCR</div><div class="v">—</div><div class="s">lenders want 1.20+</div></div>
+      <div class="kpi" id="k_onepct"><div class="k">1% rule</div><div class="v">—</div><div class="s">rent ÷ all-in</div></div>
+      <div class="kpi" id="k_grm"><div class="k">GRM</div><div class="v">—</div><div class="s">price ÷ gross rent</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BRRRR ============ -->
+<section class="pane" id="p-brrrr">
+  <div class="card">
+    <h3>Refinance terms</h3>
+    <div class="grid g3">
+      <label class="f suf"><span>Refi LTV</span><input class="inp" type="number" id="f_refiltv" value="75"></label>
+      <label class="f suf"><span>Refi rate</span><input class="inp" type="number" id="f_refirate" value="7.5" step=".05"></label>
+      <label class="f"><span>Term yrs</span><input class="inp" type="number" id="f_refiterm" value="30"></label>
+      <label class="f suf"><span>Refi closing</span><input class="inp" type="number" id="f_reficost" value="2.5" step=".1"></label>
+      <label class="f"><span>Seasoning mo</span><input class="inp" type="number" id="f_season" value="6"></label>
+    </div>
+    <p class="hint">Uses your ARV, rehab, rent and taxes from the other tabs. Seasoning is how long the lender makes you hold before they'll lend on the new value.</p>
+  </div>
+  <div class="card">
+    <h3>The BRRRR cycle</h3>
+    <div id="brrrrLedger"></div>
+    <div class="kpis" style="margin-top:14px">
+      <div class="kpi" id="k_bleft"><div class="k">Cash left in</div><div class="v">—</div><div class="s">after cash-out refi</div></div>
+      <div class="kpi" id="k_bpull"><div class="k">Capital recycled</div><div class="v">—</div><div class="s">% of cash back out</div></div>
+      <div class="kpi" id="k_bcf"><div class="k">Post-refi cash flow</div><div class="v">—</div><div class="s">monthly, after new note</div></div>
+      <div class="kpi" id="k_bcoc"><div class="k">CoC on cash left</div><div class="v">—</div><div class="s">∞ if you pulled it all</div></div>
+      <div class="kpi" id="k_bequity"><div class="k">Equity captured</div><div class="v">—</div><div class="s">ARV − all-in</div></div>
+      <div class="kpi" id="k_bdscr"><div class="k">Refi DSCR</div><div class="v">—</div><div class="s">will the refi even close</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHOLESALE ============ -->
+<section class="pane" id="p-whole">
+  <div class="card">
+    <h3>Assignment</h3>
+    <div class="grid g3">
+      <label class="f pre"><span>Assignment fee</span><input class="inp" type="number" id="f_assign" value="12000"></label>
+      <label class="f suf"><span>Buyer's rule %</span><input class="inp" type="number" id="f_buyerrule" value="70"></label>
+      <label class="f pre"><span>Marketing/EMD</span><input class="inp" type="number" id="f_wcost" value="1500"></label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Wholesale numbers</h3>
+    <div id="wholeLedger"></div>
+    <div class="kpis" style="margin-top:14px">
+      <div class="kpi" id="k_wmao"><div class="k">Max contract price</div><div class="v">—</div><div class="s">what you can tie it up at</div></div>
+      <div class="kpi" id="k_wbuyer"><div class="k">Buyer's max</div><div class="v">—</div><div class="s">what an investor pays</div></div>
+      <div class="kpi" id="k_wspread"><div class="k">Your spread</div><div class="v">—</div><div class="s">fee minus costs</div></div>
+      <div class="kpi" id="k_wroom"><div class="k">Negotiating room</div><div class="v">—</div><div class="s">list − max contract</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VERDICT ============ -->
+<section class="pane" id="p-verdict">
+  <div class="verdict" id="vBox">
+    <div class="big" id="vBig">—</div>
+    <div class="sub" id="vSub">Fill in the property, comps and rehab and this fills itself in.</div>
+    <div class="scorebar"><i id="vBar" style="width:0%;background:var(--txt3)"></i></div>
+    <div class="scorenums"><span>0 — walk away</span><span id="vScore">—</span><span>100 — take it</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Best strategy for this house</h3>
+    <div class="bars" id="stratBars"></div>
+    <p class="hint">Scored on return, risk and how much of your capital gets stuck. The winner is what this specific property wants to be.</p>
+  </div>
+
+  <div class="card">
+    <h3>Money vs reward — stress test</h3>
+    <p class="hint">Same house, three futures. Worst case is ARV down 10%, rehab up 25%, two extra months of carry. If worst case still isn't a disaster, the deal is real.</p>
+    <div class="scroller" style="margin-top:12px">
+      <table class="tbl" id="stressTbl">
+        <thead><tr><th>Scenario</th><th class="n">ARV</th><th class="n">Rehab</th><th class="n">Flip profit</th><th class="n">Rent CF</th><th class="n">ROI</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="kpis" style="margin-top:14px">
+      <div class="kpi" id="k_ev"><div class="k">Expected profit</div><div class="v">—</div><div class="s">probability-weighted</div></div>
+      <div class="kpi" id="k_downside"><div class="k">Downside exposure</div><div class="v">—</div><div class="s">worst-case loss</div></div>
+      <div class="kpi" id="k_rr"><div class="k">Reward : risk</div><div class="v">—</div><div class="s">upside ÷ downside</div></div>
+      <div class="kpi" id="k_atrisk"><div class="k">Capital at risk</div><div class="v">—</div><div class="s">your cash exposed</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Red flags &amp; green lights</h3>
+    <div id="flagList"></div>
+  </div>
+
+  <div class="card">
+    <h3>Offer sheet</h3>
+    <div id="offerSheet"></div>
+    <button class="btn wide" id="btnCopyOffer" style="margin-top:12px">📋 Copy offer summary</button>
+  </div>
+</section>
+
+</main>
+
+<footer class="act">
+  <div class="lead">
+    <div class="t" id="footT">Walk-in offer</div>
+    <div class="m" id="footM">—</div>
+  </div>
+  <button class="btn" id="btnRun">Run numbers</button>
+</footer>
+<script>
+"use strict";
+/* ============================================================
+   DEAL ENGINE — data tables
+   ============================================================ */
+const STATES=[["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["DC","District of Columbia"],["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],["OR","Oregon"],["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],["VA","Virginia"],["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"]];
+
+/* Counties for the states investors actually work in. Anything not listed
+   falls back to a manual entry box + a constructed appraisal-district search. */
+const COUNTIES={
+TX:["Anderson","Angelina","Aransas","Atascosa","Bastrop","Bee","Bell","Bexar","Bowie","Brazoria","Brazos","Brown","Burnet","Caldwell","Calhoun","Cameron","Chambers","Cherokee","Collin","Comal","Cooke","Coryell","Dallas","Denton","Ector","Ellis","El Paso","Erath","Fort Bend","Galveston","Gillespie","Grayson","Gregg","Guadalupe","Hardin","Harris","Harrison","Hays","Henderson","Hidalgo","Hood","Hopkins","Houston","Howard","Hunt","Jasper","Jefferson","Johnson","Kaufman","Kendall","Kerr","Lamar","Liberty","Lubbock","McLennan","Medina","Midland","Montgomery","Nacogdoches","Navarro","Nueces","Orange","Palo Pinto","Parker","Polk","Potter","Randall","Rockwall","Rusk","San Patricio","Smith","Tarrant","Taylor","Tom Green","Travis","Tyler","Upshur","Val Verde","Van Zandt","Victoria","Walker","Waller","Washington","Webb","Wichita","Williamson","Wise","Wood"],
+FL:["Alachua","Baker","Bay","Bradford","Brevard","Broward","Charlotte","Citrus","Clay","Collier","Columbia","DeSoto","Duval","Escambia","Flagler","Gadsden","Hardee","Hendry","Hernando","Highlands","Hillsborough","Indian River","Jackson","Lake","Lee","Leon","Levy","Manatee","Marion","Martin","Miami-Dade","Monroe","Nassau","Okaloosa","Okeechobee","Orange","Osceola","Palm Beach","Pasco","Pinellas","Polk","Putnam","St. Johns","St. Lucie","Santa Rosa","Sarasota","Seminole","Sumter","Suwannee","Volusia","Wakulla","Walton"],
+GA:["Bartow","Bibb","Bulloch","Camden","Carroll","Chatham","Cherokee","Clarke","Clayton","Cobb","Columbia","Coweta","DeKalb","Douglas","Effingham","Fayette","Floyd","Forsyth","Fulton","Glynn","Gwinnett","Hall","Henry","Houston","Jackson","Lowndes","Muscogee","Newton","Oconee","Paulding","Richmond","Rockdale","Spalding","Troup","Walton","Whitfield"],
+NC:["Alamance","Brunswick","Buncombe","Burke","Cabarrus","Caldwell","Carteret","Catawba","Chatham","Cleveland","Craven","Cumberland","Davidson","Durham","Forsyth","Franklin","Gaston","Guilford","Harnett","Henderson","Iredell","Johnston","Lincoln","Mecklenburg","Moore","Nash","New Hanover","Onslow","Orange","Pitt","Randolph","Robeson","Rowan","Rutherford","Union","Wake","Watauga","Wayne","Wilson"],
+SC:["Aiken","Anderson","Beaufort","Berkeley","Charleston","Cherokee","Chester","Darlington","Dorchester","Florence","Georgetown","Greenville","Greenwood","Horry","Kershaw","Lancaster","Laurens","Lexington","Oconee","Orangeburg","Pickens","Richland","Spartanburg","Sumter","York"],
+TN:["Anderson","Blount","Bradley","Cheatham","Coffee","Cumberland","Davidson","Dickson","Greene","Hamblen","Hamilton","Hawkins","Jefferson","Knox","Loudon","Madison","Marion","Maury","Montgomery","Putnam","Robertson","Rutherford","Sevier","Shelby","Sullivan","Sumner","Tipton","Warren","Washington","Williamson","Wilson"],
+AZ:["Apache","Cochise","Coconino","Gila","Graham","La Paz","Maricopa","Mohave","Navajo","Pima","Pinal","Santa Cruz","Yavapai","Yuma"],
+OH:["Allen","Ashtabula","Butler","Clark","Clermont","Columbiana","Cuyahoga","Delaware","Erie","Fairfield","Franklin","Greene","Hamilton","Lake","Licking","Lorain","Lucas","Mahoning","Medina","Miami","Montgomery","Muskingum","Portage","Richland","Ross","Scioto","Stark","Summit","Trumbull","Tuscarawas","Warren","Wayne","Wood"],
+IN:["Allen","Bartholomew","Boone","Clark","Delaware","Elkhart","Floyd","Grant","Hamilton","Hancock","Hendricks","Howard","Johnson","Kosciusko","Lake","LaPorte","Madison","Marion","Monroe","Morgan","Porter","St. Joseph","Tippecanoe","Vanderburgh","Vigo","Wayne"],
+MO:["Boone","Buchanan","Camden","Cape Girardeau","Cass","Christian","Clay","Cole","Franklin","Greene","Jackson","Jasper","Jefferson","Johnson","Lincoln","Newton","Platte","St. Charles","St. Louis","Ste. Genevieve","Taney","Warren"],
+AL:["Autauga","Baldwin","Calhoun","Cullman","Dale","DeKalb","Elmore","Etowah","Houston","Jefferson","Lauderdale","Lee","Limestone","Madison","Marshall","Mobile","Montgomery","Morgan","St. Clair","Shelby","Talladega","Tuscaloosa","Walker"],
+OK:["Canadian","Cleveland","Comanche","Creek","Garfield","Grady","Kay","Logan","McClain","Muskogee","Oklahoma","Osage","Payne","Pottawatomie","Rogers","Tulsa","Wagoner","Washington"],
+NV:["Carson City","Churchill","Clark","Douglas","Elko","Lyon","Nye","Storey","Washoe"],
+PA:["Adams","Allegheny","Beaver","Berks","Blair","Bucks","Butler","Cambria","Centre","Chester","Cumberland","Dauphin","Delaware","Erie","Fayette","Franklin","Lackawanna","Lancaster","Lebanon","Lehigh","Luzerne","Lycoming","Monroe","Montgomery","Northampton","Philadelphia","Schuylkill","Washington","Westmoreland","York"],
+MI:["Allegan","Bay","Berrien","Calhoun","Clinton","Eaton","Genesee","Grand Traverse","Ingham","Ionia","Jackson","Kalamazoo","Kent","Livingston","Macomb","Monroe","Muskegon","Oakland","Ottawa","Saginaw","St. Clair","Van Buren","Washtenaw","Wayne"],
+CO:["Adams","Arapahoe","Boulder","Broomfield","Denver","Douglas","El Paso","Fremont","Jefferson","Larimer","Mesa","Pueblo","Weld"],
+CA:["Alameda","Butte","Contra Costa","Fresno","Kern","Los Angeles","Merced","Monterey","Orange","Placer","Riverside","Sacramento","San Bernardino","San Diego","San Joaquin","San Luis Obispo","Santa Clara","Solano","Sonoma","Stanislaus","Tulare","Ventura","Yolo"],
+VA:["Albemarle","Arlington","Augusta","Bedford","Campbell","Chesterfield","Fairfax","Frederick","Hanover","Henrico","Loudoun","Montgomery","Prince William","Roanoke","Rockingham","Spotsylvania","Stafford","York"],
+WA:["Benton","Clark","Cowlitz","Grant","King","Kitsap","Lewis","Pierce","Skagit","Snohomish","Spokane","Thurston","Whatcom","Yakima"],
+NY:["Albany","Broome","Dutchess","Erie","Monroe","Nassau","Niagara","Oneida","Onondaga","Orange","Rensselaer","Rockland","Saratoga","Suffolk","Ulster","Westchester"],
+IL:["Champaign","Cook","DuPage","Kane","Kendall","Lake","Madison","McHenry","McLean","Peoria","Rock Island","St. Clair","Sangamon","Will","Winnebago"],
+NJ:["Atlantic","Bergen","Burlington","Camden","Cumberland","Essex","Gloucester","Hudson","Hunterdon","Mercer","Middlesex","Monmouth","Morris","Ocean","Passaic","Salem","Somerset","Sussex","Union","Warren"],
+LA:["Ascension","Bossier","Caddo","Calcasieu","East Baton Rouge","Jefferson","Lafayette","Livingston","Orleans","Ouachita","Rapides","St. Tammany","Tangipahoa","Terrebonne"],
+AR:["Benton","Craighead","Faulkner","Garland","Lonoke","Pulaski","Saline","Sebastian","Washington","White"],
+KY:["Boone","Bullitt","Campbell","Daviess","Fayette","Hardin","Jefferson","Kenton","Madison","McCracken","Oldham","Warren"],
+MS:["DeSoto","Forrest","Harrison","Hinds","Jackson","Lamar","Lauderdale","Lee","Lowndes","Madison","Rankin"],
+UT:["Cache","Davis","Iron","Salt Lake","Summit","Tooele","Utah","Washington","Weber"],
+KS:["Butler","Douglas","Johnson","Leavenworth","Reno","Riley","Saline","Sedgwick","Shawnee","Wyandotte"],
+WI:["Brown","Dane","Kenosha","Milwaukee","Outagamie","Racine","Rock","Sheboygan","Walworth","Washington","Waukesha","Winnebago"],
+MN:["Anoka","Carver","Dakota","Hennepin","Olmsted","Ramsey","St. Louis","Scott","Sherburne","Stearns","Washington","Wright"],
+MD:["Anne Arundel","Baltimore","Baltimore City","Calvert","Carroll","Cecil","Charles","Frederick","Harford","Howard","Montgomery","Prince George's","St. Mary's","Washington","Wicomico"],
+CT:["Fairfield","Hartford","Litchfield","Middlesex","New Haven","New London","Tolland","Windham"],
+MA:["Barnstable","Berkshire","Bristol","Essex","Hampden","Hampshire","Middlesex","Norfolk","Plymouth","Suffolk","Worcester"],
+OR:["Clackamas","Deschutes","Douglas","Jackson","Josephine","Lane","Linn","Marion","Multnomah","Polk","Washington","Yamhill"],
+NM:["Bernalillo","Doña Ana","Lea","Los Alamos","McKinley","Sandoval","San Juan","Santa Fe","Valencia"],
+IA:["Black Hawk","Dallas","Dubuque","Johnson","Linn","Polk","Pottawattamie","Scott","Story","Woodbury"],
+NE:["Buffalo","Dodge","Douglas","Hall","Lancaster","Madison","Sarpy","Saunders","Washington"],
+WV:["Berkeley","Cabell","Harrison","Jefferson","Kanawha","Monongalia","Putnam","Raleigh","Wood"],
+ID:["Ada","Bannock","Bonneville","Canyon","Kootenai","Latah","Madison","Nez Perce","Twin Falls"],
+MT:["Cascade","Flathead","Gallatin","Lewis and Clark","Missoula","Ravalli","Yellowstone"],
+DE:["Kent","New Castle","Sussex"],
+RI:["Bristol","Kent","Newport","Providence","Washington"],
+NH:["Belknap","Carroll","Cheshire","Grafton","Hillsborough","Merrimack","Rockingham","Strafford","Sullivan"],
+ME:["Androscoggin","Aroostook","Cumberland","Hancock","Kennebec","Knox","Oxford","Penobscot","Sagadahoc","Waldo","York"],
+VT:["Addison","Bennington","Chittenden","Franklin","Rutland","Washington","Windham","Windsor"],
+SD:["Brookings","Brown","Codington","Lincoln","Meade","Minnehaha","Pennington"],
+ND:["Burleigh","Cass","Grand Forks","Morton","Stark","Ward"],
+WY:["Albany","Campbell","Fremont","Laramie","Natrona","Park","Sheridan","Sweetwater","Teton"],
+AK:["Anchorage","Fairbanks North Star","Juneau","Kenai Peninsula","Matanuska-Susitna"],
+HI:["Hawaii","Honolulu","Kauai","Maui"],
+DC:["District of Columbia"]
+};
+
+/* Direct appraisal-district / assessor search URLs for the busiest counties.
+   Everything else gets a constructed search that lands on the right office. */
+const CAD_DIRECT={
+"TX|Tarrant":"https://www.tad.org/property-search/",
+"TX|Dallas":"https://www.dallascad.org/SearchAddr.aspx",
+"TX|Harris":"https://hcad.org/property-search/",
+"TX|Bexar":"https://bcad.org/index.php?/property-search",
+"TX|Travis":"https://traviscad.org/property-search/",
+"TX|Collin":"https://www.collincad.org/propertysearch",
+"TX|Denton":"https://www.dentoncad.com/property-search",
+"TX|Williamson":"https://search.wcad.org/",
+"TX|Fort Bend":"https://www.fbcad.org/property-search/",
+"TX|Montgomery":"https://www.mcad-tx.org/Property-Search",
+"TX|El Paso":"https://www.epcad.org/Search",
+"TX|Hidalgo":"https://hidalgoad.org/",
+"TX|Johnson":"https://www.johnsoncad.com/property-search/",
+"TX|Parker":"https://www.isouthwestdata.com/client/webindex.aspx?dbkey=parkercad",
+"TX|Ellis":"https://www.elliscad.com/property-search/",
+"TX|Kaufman":"https://www.kaufman-cad.org/property-search/",
+"TX|Rockwall":"https://www.rockwallcad.com/property-search/",
+"TX|Brazoria":"https://brazoriacad.org/property-search/",
+"TX|Galveston":"https://propaccess.galvestoncad.org/",
+"TX|Nueces":"https://www.nuecescad.net/Search",
+"TX|Lubbock":"https://lubbockcad.org/property-search/",
+"TX|McLennan":"https://www.mclennancad.org/property-search/",
+"TX|Smith":"https://www.smithcad.org/property-search/",
+"TX|Bell":"https://bellcad.org/property-search/",
+"TX|Hays":"https://hayscad.com/property-search/",
+"TX|Comal":"https://www.comalad.org/property-search/",
+"TX|Guadalupe":"https://www.guadalupead.org/property-search/",
+"FL|Miami-Dade":"https://www.miamidade.gov/Apps/PA/propertysearch/",
+"FL|Broward":"https://web.bcpa.net/BcpaClient/#/Record-Search",
+"FL|Palm Beach":"https://pbcpao.gov/Property/Search",
+"FL|Hillsborough":"https://gis.hcpafl.org/propertysearch/",
+"FL|Orange":"https://ocpaweb.ocpafl.org/parcelsearch",
+"FL|Duval":"https://paopropertysearch.coj.net/Basic/Search.aspx",
+"FL|Pinellas":"https://www.pcpao.gov/property-details",
+"FL|Lee":"https://www.leepa.org/Search/PropertySearch.aspx",
+"FL|Polk":"https://www.polkpa.org/CamaDisplay.aspx",
+"FL|Brevard":"https://www.bcpao.us/PropertySearch/",
+"FL|Volusia":"https://vcpa.vcgov.org/search/",
+"FL|Pasco":"https://search.pascopa.com/",
+"FL|Seminole":"https://www.scpafl.org/property-search",
+"FL|Marion":"https://www.pa.marion.fl.us/PropertySearch.aspx",
+"FL|Sarasota":"https://www.sc-pa.com/propertysearch/",
+"FL|Manatee":"https://www.manateepao.gov/search/",
+"FL|Osceola":"https://ira.property-appraiser.org/PropertySearch/",
+"FL|Escambia":"https://www.escpa.org/cama/",
+"FL|Alachua":"https://qpublic.schneidercorp.com/Application.aspx?AppID=1081",
+"GA|Fulton":"https://fultonassessor.org/property-records-search/",
+"GA|Gwinnett":"https://gwinnettassessor.manatron.com/",
+"GA|Cobb":"https://cobbassessor.org/property-search/",
+"GA|DeKalb":"https://publicaccess.dekalbcountyga.gov/search/commonsearch.aspx?mode=address",
+"GA|Chatham":"https://boa.chathamcountyga.gov/PropertyRecordSearch",
+"NC|Mecklenburg":"https://property.spatialest.com/nc/mecklenburg/",
+"NC|Wake":"https://services.wake.gov/realestate/Search.asp",
+"NC|Guilford":"https://taxcama.guilfordcountync.gov/camapwa/",
+"NC|Forsyth":"https://tax.forsyth.cc/publicwebaccess/",
+"NC|Durham":"https://property.spatialest.com/nc/durham/",
+"NC|New Hanover":"https://etax.nhcgov.com/pt/search/commonsearch.aspx?mode=realprop",
+"SC|Greenville":"https://www.greenvillecounty.org/RealPropertyService/",
+"SC|Charleston":"https://sc-charleston.publicaccessnow.com/",
+"SC|Richland":"https://propertysearch.richlandcountysc.gov/",
+"SC|Horry":"https://horrycountysc.gov/departments/assessor/",
+"TN|Shelby":"https://www.assessormelvinburgess.com/propertySearch",
+"TN|Davidson":"https://www.padctn.org/prc/",
+"TN|Knox":"https://propertyinfo.knoxcountytn.gov/",
+"TN|Hamilton":"https://assessor.hamiltontn.gov/",
+"TN|Rutherford":"https://www.rutherfordcountytn.gov/assessor/",
+"AZ|Maricopa":"https://mcassessor.maricopa.gov/",
+"AZ|Pima":"https://www.asr.pima.gov/Parcel/Search",
+"AZ|Pinal":"https://www.pinal.gov/1088/Parcel-Search",
+"NV|Clark":"https://www.clarkcountynv.gov/assessor/",
+"NV|Washoe":"https://www.washoecounty.gov/assessor/",
+"OH|Franklin":"https://property.franklincountyauditor.com/_web/search/commonsearch.aspx?mode=address",
+"OH|Cuyahoga":"https://myplace.cuyahogacounty.gov/",
+"OH|Hamilton":"https://wedge.hcauditor.org/",
+"OH|Montgomery":"https://www.mcrealestate.org/",
+"OH|Summit":"https://fiscaloffice.summitoh.net/index.php/property-tax-search",
+"IN|Marion":"https://www.indy.gov/activity/property-report-card",
+"IN|Lake":"https://lakecountyin.org/portal/media-type/html/group/assessor/page/home",
+"IN|Allen":"https://www.allencounty.us/assessor",
+"MO|Jackson":"https://www.jacksongov.org/1494/Property-Search",
+"MO|St. Louis":"https://revenue.stlouisco.com/IAS/",
+"MO|Greene":"https://gis.greenecountymo.gov/Html5Viewer/",
+"CO|Denver":"https://www.denvergov.org/property/realproperty/search",
+"CO|El Paso":"https://property.spatialest.com/co/elpaso/",
+"CO|Arapahoe":"https://arapahoe.gov/357/Assessor",
+"MI|Wayne":"https://www.waynecounty.com/elected/treasurer/property-tax-search.aspx",
+"MI|Oakland":"https://www.oakgov.com/community/equalization",
+"PA|Philadelphia":"https://property.phila.gov/",
+"PA|Allegheny":"https://www2.alleghenycounty.us/RealEstate/Search.aspx",
+"CA|Los Angeles":"https://portal.assessor.lacounty.gov/",
+"CA|San Diego":"https://arcc.sdcounty.ca.gov/Pages/Property-Search.aspx",
+"CA|Riverside":"https://rivcoview.rivcoacr.org/",
+"CA|Orange":"https://www.octreasurer.gov/octaxbill",
+"WA|King":"https://blue.kingcounty.com/Assessor/eRealProperty/",
+"WA|Pierce":"https://atip.piercecountywa.gov/",
+"WA|Spokane":"https://cp.spokanecounty.org/scout/propertyinformation/",
+"OK|Oklahoma":"https://docs.oklahomacounty.org/AssessorWP5/",
+"OK|Tulsa":"https://www.assessor.tulsacounty.org/",
+"AL|Jefferson":"https://eringcapture.jccal.org/caportal/",
+"AL|Madison":"https://millsandassociates.net/madison/",
+"AL|Mobile":"https://www.mobilecopropertytax.com/",
+"LA|Orleans":"https://nolaassessor.com/",
+"LA|East Baton Rouge":"https://www.ebrpa.org/",
+"LA|Jefferson":"https://www.jpassessor.com/",
+"UT|Salt Lake":"https://slco.org/assessor/",
+"UT|Utah":"https://www.utahcounty.gov/LandRecords/",
+"KY|Jefferson":"https://jeffersonpva.ky.gov/property-search/",
+"KY|Fayette":"https://www.fayettepva.com/",
+"IL|Cook":"https://www.cookcountyassessor.com/address-search",
+"IL|DuPage":"https://www.dupagecounty.gov/supervisor_of_assessments/",
+"NY|Suffolk":"https://suffolkcountyny.gov/",
+"NY|Erie":"https://www2.erie.gov/ecrpts/",
+"MD|Baltimore":"https://sdat.dat.maryland.gov/RealProperty/",
+"MD|Montgomery":"https://sdat.dat.maryland.gov/RealProperty/",
+"VA|Fairfax":"https://icare.fairfaxcounty.gov/",
+"VA|Virginia Beach":"https://propertysearch.vbgov.com/",
+"NJ|Bergen":"https://tax1.co.monmouth.nj.us/cgi-bin/prc6.cgi?district=0201",
+"MN|Hennepin":"https://www16.co.hennepin.mn.us/pins/",
+"WI|Milwaukee":"https://assessments.milwaukee.gov/",
+"KS|Johnson":"https://land.jocogov.org/",
+"KS|Sedgwick":"https://www.sedgwickcounty.org/appraiser/property-search/",
+"AR|Pulaski":"https://www.pulaskicountyassessor.net/",
+"AR|Benton":"https://www.arcountydata.com/",
+"MS|DeSoto":"https://www.desotocountyms.gov/172/Tax-Assessor",
+"NM|Bernalillo":"https://www.bernco.gov/assessor/",
+"NE|Douglas":"https://www.dcassessor.org/",
+"IA|Polk":"https://www.assess.co.polk.ia.us/cgi-bin/web/tt/infoqry.cgi?tt=home/index",
+"ID|Ada":"https://adacounty.id.gov/assessor/",
+"MT|Gallatin":"https://svc.mt.gov/dor/property/prc",
+"OR|Multnomah":"https://multcoproptax.com/Property-Search",
+"OR|Washington":"https://washcotax.co.washington.or.us/",
+"WV|Kanawha":"https://kanawha.softwaresystems.com/",
+"DC|District of Columbia":"https://taxpayerservicecenter.com/RP_Search.jsp"
+};
+
+/* ArcGIS / open-data parcel portals — the genuinely scrapable layer */
+const GIS_DIRECT={
+"TX|Tarrant":"https://gis-tad.opendata.arcgis.com/datasets/tad-parcels-1",
+"TX|Harris":"https://geo-harriscounty.opendata.arcgis.com/",
+"TX|Dallas":"https://gis.dallascounty.org/",
+"TX|Travis":"https://data.austintexas.gov/",
+"TX|Bexar":"https://gis-bexar.opendata.arcgis.com/",
+"TX|Collin":"https://gis-collincounty.opendata.arcgis.com/",
+"TX|Denton":"https://gis-dentoncounty.opendata.arcgis.com/",
+"TX|Hidalgo":"https://www.hidalgocounty.us/1041/GIS-Department",
+"FL|Miami-Dade":"https://gis-mdc.opendata.arcgis.com/",
+"FL|Hillsborough":"https://city-tampa.opendata.arcgis.com/",
+"FL|Orange":"https://data-ocfl.opendata.arcgis.com/",
+"NC|Mecklenburg":"https://data-charlotte.opendata.arcgis.com/",
+"NC|Wake":"https://data-wake.opendata.arcgis.com/",
+"GA|Fulton":"https://gisdata.fultoncountyga.gov/",
+"AZ|Maricopa":"https://data-maricopa.opendata.arcgis.com/",
+"OH|Franklin":"https://opendata.columbus.gov/",
+"CO|Denver":"https://opendata-geospatialdenver.hub.arcgis.com/",
+"WA|King":"https://gis-kingcounty.opendata.arcgis.com/"
+};
+
+/* Rehab scope templates — $/sqft and flat costs, US-average 2026 dollars.
+   flat = fixed cost, psf = per living sqft */
+const SCOPES={
+turnkey:[["Deep clean & haul-off",0,900],["Paint — interior touch-up",1.1,0],["Carpet clean / floor polish",0,700],["Landscape tidy",0,600],["Locks, detectors, filters",0,450],["Minor repairs / punch list",0,1400]],
+light:[["Paint — full interior",2.4,0],["Paint — exterior",0,3000],["Flooring — LVP",4.2,0],["Appliance package",0,2400],["Light fixtures & fans",0,1200],["Hardware, outlets, switches",0,800],["Blinds / window coverings",0,900],["Landscaping / curb appeal",0,1200],["Deep clean & haul-off",0,900],["Punch list / misc",0,1100]],
+medium:[["Paint — full interior",2.2,0],["Paint — exterior",0,3200],["Flooring — LVP + tile wet areas",4.8,0],["Kitchen — cabinets, counters, appliances",0,12500],["Bathroom — primary",0,5500],["Bathroom — secondary",0,3800],["Light fixtures & fans",0,1600],["Doors, trim, hardware",0,1800],["HVAC service / partial",0,1800],["Roof repair / partial",0,2400],["Landscaping / curb appeal",0,1500],["Deep clean & haul-off",0,1200],["Permits & dumpsters",0,1400]],
+heavy:[["Demo & haul-off",1.2,0],["Roof — full replacement",0,11000],["HVAC — full system",0,8500],["Electrical — panel + partial rewire",0,6500],["Plumbing — partial repipe",0,5000],["Windows — full replacement",0,7000],["Insulation & drywall repair",2.4,0],["Paint — interior + exterior",2.8,0],["Flooring — full",4.6,0],["Kitchen — full gut",0,14000],["Bathroom — primary full",0,7000],["Bathroom — secondary full",0,5000],["Doors, trim, hardware",0,2600],["Siding / exterior repair",0,3500],["Landscaping / fence / driveway",0,2800],["Permits, dumpsters, portapotty",0,2200]],
+gut:[["Full demo to studs",2.0,0],["Foundation repair",0,10000],["Roof — full replacement",0,11500],["HVAC — full system + ducts",0,10000],["Electrical — full rewire + panel",0,11000],["Plumbing — full repipe + sewer",0,10000],["Windows & exterior doors",0,9000],["Framing / structural",0,6000],["Insulation, drywall, texture",5.0,0],["Paint — interior + exterior",3.0,0],["Flooring — full",5.0,0],["Kitchen — full build",0,18000],["Bathroom — primary full",0,9000],["Bathroom — secondary full",0,6000],["Trim, doors, hardware",0,4500],["Siding / stucco / masonry",0,6500],["Site work, fence, driveway, landscape",0,5000],["Permits, engineering, dumpsters",0,4500],["Final clean & stage",0,2200]]
+};
+
+/* Market presets — calibrated to real local numbers, not national averages.
+   rehabMult is a regional cost index vs the national baseline in SCOPES.
+   roofAdd is a market-specific adder (hail markets spec Class 4 shingles). */
+const MARKETS={
+"mcallen":{label:"McAllen, TX — Hidalgo County",state:"TX",county:"Hidalgo",city:"McAllen",zip:"78501",
+  arvPsf:145, taxRate:0.0178, ins:3400, rentPsf:1.15, dom:79, sclose:8, rehabMult:0.95, roofAdd:6500,
+  hmrate:11.5, rrate:7.25, vac:9, mgmt:9, note:"Flat prices (+0.5% yr), 79 days to pending, 1.78% effective tax, sub-1% rent ratio. Hail market — roof and insurance are the two lines that kill deals here."},
+"fortworth":{label:"Fort Worth, TX — Tarrant County",state:"TX",county:"Tarrant",city:"Fort Worth",zip:"76104",
+  arvPsf:186, taxRate:0.025, ins:2400, rentPsf:1.21, dom:47, sclose:8, rehabMult:1.0, roofAdd:0,
+  hmrate:11.5, rrate:7.25, vac:7, mgmt:9, note:"Deeper buyer pool and faster resale than the Valley, but higher tax load and higher entry price."},
+"custom":{label:"Custom / other market",state:"",county:"",city:"",zip:"",
+  arvPsf:0, taxRate:0.022, ins:2400, rentPsf:1.1, dom:45, sclose:8, rehabMult:1.0, roofAdd:0,
+  hmrate:11.5, rrate:7.25, vac:7, mgmt:9, note:"National-average defaults. Calibrate the rehab index and insurance to your market."}
+};
+
+/* Real McAllen 78501 comp set — 1970s stock, central McAllen, $/sqft in the
+   $138-152 band that older non-renovated inventory actually trades at. */
+const MCALLEN_COMPS=[
+ {addr:"1908 Beaumont Ave",price:206000,sqft:1412,dist:0.4,age:52},
+ {addr:"717 Pecan Blvd W",price:189500,sqft:1338,dist:0.6,age:88},
+ {addr:"2412 Kendlewood Ave",price:214900,sqft:1476,dist:0.8,age:34},
+ {addr:"1105 Quince Ave",price:181000,sqft:1290,dist:0.5,age:119},
+ {addr:"3020 Daffodil Ave",price:222500,sqft:1540,dist:0.9,age:61},
+ {addr:"810 Fir Ave",price:197000,sqft:1365,dist:0.7,age:73}
+];
+
+const DEMO_COMPS=[
+ {addr:"1508 Maple St",price:279000,sqft:1502,dist:0.2,age:38},
+ {addr:"920 Rosemont Ave",price:264500,sqft:1388,dist:0.5,age:71},
+ {addr:"1721 Cedar Ln",price:296000,sqft:1610,dist:0.7,age:24},
+ {addr:"430 Willow Dr",price:255000,sqft:1340,dist:0.9,age:112},
+ {addr:"1145 Ashgrove Ct",price:288500,sqft:1548,dist:0.6,age:55}
+];
+
+/* ============================================================
+   ENGINE — pure math, no DOM
+   ============================================================ */
+const nz=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
+const pct=v=>nz(v)/100;
+const money=(v,d=0)=>(v<0?"-":"")+"$"+Math.abs(Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pctS=(v,d=1)=>(isFinite(v)?(v*100).toFixed(d)+"%":"—");
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function pmt(loan,annualRate,years){
+  if(loan<=0)return 0;
+  const r=annualRate/100/12, n=years*12;
+  if(n<=0)return 0;
+  if(r===0)return loan/n;
+  return loan*r/(1-Math.pow(1+r,-n));
+}
+function median(a){
+  if(!a.length)return 0;
+  const s=[...a].sort((x,y)=>x-y),m=s.length>>1;
+  return s.length%2?s[m]:(s[m-1]+s[m])/2;
+}
+
+/* ---- ARV from comps ---- */
+function arvFromComps(comps,sqft,adjPct){
+  const valid=comps.filter(c=>nz(c.price)>0&&nz(c.sqft)>0);
+  if(!valid.length)return {arv:0,med:0,spread:0,conf:0,n:0};
+  const psfs=valid.map(c=>nz(c.price)/nz(c.sqft));
+  const med=median(psfs);
+  const lo=Math.min(...psfs),hi=Math.max(...psfs);
+  const spread=med>0?(hi-lo)/med:0;
+  const avgAge=valid.reduce((s,c)=>s+nz(c.age),0)/valid.length;
+  const avgDist=valid.reduce((s,c)=>s+nz(c.dist),0)/valid.length;
+  // confidence 0..1
+  let conf=0;
+  conf+=clamp(valid.length/5,0,1)*0.35;          // count
+  conf+=clamp(1-spread/0.45,0,1)*0.30;            // tightness
+  conf+=clamp(1-avgAge/180,0,1)*0.20;             // recency
+  conf+=clamp(1-avgDist/1.5,0,1)*0.15;            // proximity
+  const arv=med*nz(sqft)*(1+pct(adjPct));
+  return {arv,med,spread,conf,n:valid.length,lo,hi};
+}
+
+/* ---- FLIP ---- */
+function flip(d){
+  const arv=nz(d.arv), rehab=nz(d.rehab), P=nz(d.purchase);
+  const bc=pct(d.bclose), sc=pct(d.sclose), dp=pct(d.dp);
+  const pts=pct(d.points), hold=nz(d.hold);
+  const rf=nz(d.rehabfin)?rehab:0;
+  const loan=Math.max(0,P*(1-dp)+rf);
+  const pointsCost=loan*pts;
+  const interest=loan*(pct(d.hmrate)/12)*hold;
+  const carry=(nz(d.carry)+nz(d.tax)/12)*hold;
+  const buyClose=P*bc;
+  const sellClose=arv*sc;
+  const costs=P+rehab+buyClose+pointsCost+interest+carry+sellClose;
+  const profit=arv-costs;
+  const cashIn=P*dp+buyClose+pointsCost+(rehab-rf)+carry+interest;
+  const roi=cashIn>0?profit/cashIn:0;
+  const ann=hold>0?roi*12/hold:0;
+  const margin=arv>0?profit/arv:0;
+  const fixed=P+rehab+buyClose+pointsCost+interest+carry;
+  const breakeven=sc<1?fixed/(1-sc):0;
+  return {arv,purchase:P,rehab,buyClose,pointsCost,interest,carry,sellClose,loan,costs,profit,cashIn,roi,ann,margin,breakeven};
+}
+/* MAO solved so profit == target, closed-form */
+function maoProfit(d,target){
+  const arv=nz(d.arv), rehab=nz(d.rehab);
+  const bc=pct(d.bclose), sc=pct(d.sclose), dp=pct(d.dp);
+  const k=pct(d.points)+(pct(d.hmrate)/12)*nz(d.hold);
+  const rf=nz(d.rehabfin)?rehab:0;
+  const carry=(nz(d.carry)+nz(d.tax)/12)*nz(d.hold);
+  const num=arv*(1-sc)-rehab-carry-rf*k-nz(target);
+  const den=1+bc+(1-dp)*k;
+  return den>0?num/den:0;
+}
+
+/* ---- RENTAL ---- */
+function rental(d){
+  const P=nz(d.purchase), rehab=nz(d.rehab);
+  const buyClose=P*pct(d.bclose);
+  const allIn=P+rehab+buyClose;
+  const gsi=(nz(d.rent)+nz(d.othinc))*12;
+  const vac=gsi*pct(d.vac);
+  const egi=gsi-vac;
+  const maint=gsi*pct(d.maint), capex=gsi*pct(d.capex), mgmt=egi*pct(d.mgmt);
+  const tax=nz(d.tax), ins=nz(d.ins), hoa=nz(d.hoa)*12, oth=nz(d.othexp)*12;
+  const opex=maint+capex+mgmt+tax+ins+hoa+oth;
+  const noi=egi-opex;
+  const loan=P*(1-pct(d.rdp));
+  const mo=pmt(loan,nz(d.rrate),nz(d.rterm));
+  const ds=mo*12;
+  const cf=noi-ds;
+  const cashIn=P*pct(d.rdp)+buyClose+rehab;
+  return {allIn,gsi,vac,egi,maint,capex,mgmt,tax,ins,hoa,oth,opex,noi,loan,mo,ds,cf,cfMo:cf/12,
+    cap:allIn>0?noi/allIn:0, coc:cashIn>0?cf/cashIn:0, dscr:ds>0?noi/ds:Infinity,
+    onePct:allIn>0?nz(d.rent)/allIn:0, grm:gsi>0?allIn/gsi:0, cashIn, opexRatio:egi>0?opex/egi:0};
+}
+
+/* ---- BRRRR ---- */
+function brrrr(d){
+  const f=flip({...d,hold:nz(d.season)});
+  const r=rental(d);
+  const allIn=f.purchase+f.rehab+f.buyClose+f.pointsCost+f.interest+f.carry;
+  const refiLoan=nz(d.arv)*pct(d.refiltv);
+  const refiCost=refiLoan*pct(d.reficost);
+  const proceeds=refiLoan-f.loan-refiCost;
+  const cashIn=f.cashIn;
+  const cashLeft=cashIn-proceeds;
+  const newMo=pmt(refiLoan,nz(d.refirate),nz(d.refiterm));
+  const cfMo=r.noi/12-newMo;
+  const coc=cashLeft>0?(cfMo*12)/cashLeft:Infinity;
+  return {allIn,refiLoan,refiCost,proceeds,cashIn,cashLeft,newMo,cfMo,coc,
+    equity:nz(d.arv)-allIn, recycled:cashIn>0?clamp(proceeds/cashIn,0,2):0,
+    dscr:newMo>0?r.noi/(newMo*12):Infinity, noi:r.noi, payoff:f.loan};
+}
+
+/* ---- WHOLESALE ---- */
+function wholesale(d){
+  const buyerMax=nz(d.arv)*pct(d.buyerrule)-nz(d.rehab);
+  const maxContract=buyerMax-nz(d.assign);
+  return {buyerMax,maxContract,spread:nz(d.assign)-nz(d.wcost),
+    room:nz(d.list)-maxContract, feePctArv:nz(d.arv)>0?nz(d.assign)/nz(d.arv):0};
+}
+
+/* ---- SCORING ---- */
+function scoreDeal(d){
+  const f=flip(d), r=rental(d), b=brrrr(d), w=wholesale(d);
+  const s={};
+  // Flip: margin, annualized ROI, rehab risk
+  s.flip=clamp(
+     clamp(f.margin/0.20,0,1)*45 +
+     clamp(f.ann/0.60,0,1)*30 +
+     clamp(1-(nz(d.rehab)/Math.max(1,nz(d.arv)))/0.30,0,1)*15 +
+     clamp((f.profit-25000)/50000,0,1)*10, 0,100);
+  // Rental: CoC, DSCR, cash flow, 1%
+  s.rent=clamp(
+     clamp(r.coc/0.10,0,1)*35 +
+     clamp((r.dscr-1)/0.35,0,1)*25 +
+     clamp(r.cfMo/300,0,1)*25 +
+     clamp(r.onePct/0.01,0,1)*15, 0,100);
+  // BRRRR: recycled capital, post-refi CF, DSCR
+  s.brrrr=clamp(
+     clamp(b.recycled/1.0,0,1)*40 +
+     clamp(b.cfMo/250,0,1)*30 +
+     clamp((b.dscr-1)/0.30,0,1)*20 +
+     clamp(b.equity/40000,0,1)*10, 0,100);
+  // Wholesale: fee you keep, how hard the discount is to get, fee sanity
+  const roomPct=nz(d.list)>0?w.room/nz(d.list):1;   // share off asking you must extract
+  const feas=clamp(1-(roomPct-0.10)/0.50,0,1);      // how gettable that discount is
+  // Nobody contracts a house at 55% under asking, and a negative max contract
+  // price means the rehab already ate the deal. Both are hard zeros.
+  s.whole = (w.maxContract<=0 || roomPct>0.55) ? 0 : clamp(
+     (clamp(w.spread/12000,0,1)*55 +
+      clamp(1-w.feePctArv/0.06,0,1)*20 +
+      feas*25) * (0.4+0.6*feas), 0,100);
+  return {s,f,r,b,w};
+}
+
+/* ---- STRESS ---- */
+const SCEN=[
+ {name:"Best",  arv:1.05, rehab:0.90, hold:-1, rent:1.04, p:0.20, color:"var(--good)"},
+ {name:"Base",  arv:1.00, rehab:1.00, hold:0,  rent:1.00, p:0.55, color:"var(--acc)"},
+ {name:"Worst", arv:0.90, rehab:1.25, hold:+2, rent:0.92, p:0.25, color:"var(--bad)"}
+];
+function stress(d){
+  return SCEN.map(sc=>{
+    const dd={...d, arv:nz(d.arv)*sc.arv, rehab:nz(d.rehab)*sc.rehab,
+              rent:nz(d.rent)*sc.rent, vac:nz(d.vac)*(sc.rent<1?1.6:1),
+              hold:Math.max(1,nz(d.hold)+sc.hold)};
+    const f=flip(dd), r=rental(dd);
+    return {...sc, arv:dd.arv, rehab:dd.rehab, profit:f.profit, roi:f.roi, cfMo:r.cfMo, cashIn:f.cashIn};
+  });
+}
+</script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
+const STORE="dealEngine.v1";
+
+/* ---------- state ---------- */
+let COMPS=[], REHAB=[], PHOTOS=[], LAST=null;
+
+/* ---------- tabs ---------- */
+$("tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-p]"); if(!b)return;
+  [...$("tabs").children].forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("section.pane").forEach(p=>p.classList.toggle("on",p.id==="p-"+b.dataset.p));
+  window.scrollTo({top:0,behavior:"instant"});
+});
+
+/* ---------- state / county ---------- */
+(function(){
+  const s=$("f_state");
+  s.innerHTML='<option value="">—</option>'+STATES.map(([a,n])=>`<option value="${a}">${n}</option>`).join("");
+  s.value="TX";
+})();
+function fillCounties(){
+  const st=$("f_state").value, sel=$("f_county"), prev=sel.value;
+  const list=COUNTIES[st]||[];
+  sel.innerHTML=(list.length?"":'<option value="">— type it below —</option>')+
+    list.map(c=>`<option value="${c}">${c} County</option>`).join("")+
+    '<option value="__other">— other / type manually —</option>';
+  if(list.includes(prev))sel.value=prev;
+  else if(list.length)sel.value=list[0];
+  countyChanged();
+}
+function countyName(){
+  const v=$("f_county").value;
+  if(v==="__other"||v===""){const m=$("countyManual");return m?m.value.trim():"";}
+  return v;
+}
+function countyChanged(){
+  let box=$("countyManualWrap");
+  const need=$("f_county").value==="__other"||!(COUNTIES[$("f_state").value]||[]).length;
+  if(need&&!box){
+    box=el("label","f","<span>County name</span><input class='inp' id='countyManual' placeholder='e.g. Sullivan'>");
+    box.id="countyManualWrap"; box.style.marginTop="10px";
+    $("f_county").parentElement.after(box);
+    $("countyManual").addEventListener("input",updateCadHint);
+  } else if(!need&&box){ box.remove(); }
+  updateCadHint();
+}
+function cadURL(){
+  const st=$("f_state").value, c=countyName();
+  if(!st||!c)return null;
+  const direct=CAD_DIRECT[st+"|"+c];
+  if(direct)return {url:direct,exact:true};
+  const stName=(STATES.find(x=>x[0]===st)||["",""])[1];
+  return {url:"https://www.google.com/search?q="+encodeURIComponent(`${c} County ${stName} property appraiser OR "appraisal district" property record search`),exact:false};
+}
+function gisURL(){
+  const st=$("f_state").value, c=countyName();
+  if(!st||!c)return null;
+  const direct=GIS_DIRECT[st+"|"+c];
+  if(direct)return {url:direct,exact:true};
+  const stName=(STATES.find(x=>x[0]===st)||["",""])[1];
+  return {url:"https://hub.arcgis.com/search?q="+encodeURIComponent(`${c} County ${stName} parcels`),exact:false};
+}
+function updateCadHint(){
+  const c=countyName(), st=$("f_state").value, u=cadURL();
+  if(!u){$("cadHint").textContent="Pick a state + county to unlock direct links to that county's appraisal district search.";return;}
+  $("cadHint").innerHTML=u.exact
+    ? `✅ Direct link on file for <b>${c} County, ${st}</b> — opens their official property search.`
+    : `No direct link stored for <b>${c} County, ${st}</b>, so the button runs a targeted search that lands on the right assessor's office. Every US county publishes this — it's public record.`;
+}
+$("f_state").addEventListener("change",fillCounties);
+$("f_county").addEventListener("change",countyChanged);
+$("btnCAD").onclick=()=>{const u=cadURL();if(u)window.open(u.url,"_blank");else alert("Pick a state and county first.");};
+$("btnGIS").onclick=()=>{const u=gisURL();if(u)window.open(u.url,"_blank");else alert("Pick a state and county first.");};
+
+/* ---------- data source segmented ---------- */
+$("srcSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-s]"); if(!b)return;
+  [...$("srcSeg").children].forEach(x=>x.classList.toggle("on",x===b));
+  ["manual","api","county","csv"].forEach(s=>$("src-"+s).style.display=(s===b.dataset.s?"block":"none"));
+});
+
+/* ---------- rehab scope ---------- */
+function loadScope(){
+  const sq=nz($("f_sqft").value), key=$("f_cond").value;
+  REHAB=(SCOPES[key]||[]).map(([n,psf,flat])=>({name:n,cost:Math.round(psf*sq+flat)}));
+  const M=MARKETS[$("f_market").value];
+  if(M&&M.roofAdd){
+    const i=REHAB.findIndex(l=>/roof/i.test(l.name));
+    if(i>=0&&REHAB[i].cost>4000)REHAB[i].cost+=M.roofAdd;
+  }
+  renderRehab();
+}
+
+/* ---------- market presets ---------- */
+(function(){
+  const sel=$("f_market");
+  sel.innerHTML=Object.entries(MARKETS).map(([k,m])=>`<option value="${k}">${m.label}</option>`).join("");
+  sel.value="mcallen";
+})();
+function applyMarket(alsoLocation){
+  const M=MARKETS[$("f_market").value]; if(!M)return;
+  $("marketNote").innerHTML=M.note;
+  if(alsoLocation&&M.state){
+    $("f_state").value=M.state; fillCounties();
+    const cs=$("f_county");
+    if([...cs.options].some(o=>o.value===M.county))cs.value=M.county;
+    countyChanged();
+    if(M.city)$("f_city").value=M.city;
+    if(M.zip)$("f_zip").value=M.zip;
+  }
+  $("f_ins").value=M.ins; $("f_dom").value=M.dom; $("f_sclose").value=M.sclose;
+  $("f_rehabmult").value=M.rehabMult; $("f_hmrate").value=M.hmrate; $("f_rrate").value=M.rrate;
+  $("f_vac").value=M.vac; $("f_mgmt").value=M.mgmt;
+  // Texas re-assesses to the sale price, so tax follows what you actually pay.
+  const basis=nz($("f_offer").value)||nz($("f_list").value)||nz($("f_cad").value);
+  if(basis>0)$("f_tax").value=Math.round(basis*M.taxRate);
+  if(nz($("f_sqft").value)>0&&M.rentPsf)$("f_rent").value=Math.round(nz($("f_sqft").value)*M.rentPsf/25)*25;
+  loadScope(); run();
+}
+$("f_market").addEventListener("change",()=>applyMarket(true));
+function renderRehab(){
+  const tb=$("rehabTbl").querySelector("tbody"); tb.innerHTML="";
+  REHAB.forEach((li,i)=>{
+    const tr=el("tr");
+    tr.innerHTML=`<td><input class="inp" style="padding:6px 8px;font-size:13px" value="${li.name.replace(/"/g,"&quot;")}" data-i="${i}" data-k="name"></td>
+      <td class="n" style="width:118px"><input class="inp" type="number" style="padding:6px 8px;font-size:13px;text-align:right" value="${li.cost}" data-i="${i}" data-k="cost"></td>
+      <td><button class="x" data-del="${i}">×</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.oninput=e=>{const t=e.target;if(t.dataset.k){REHAB[+t.dataset.i][t.dataset.k]=t.dataset.k==="cost"?nz(t.value):t.value;sumRehab();}};
+  tb.onclick=e=>{const b=e.target.closest("[data-del]");if(b){REHAB.splice(+b.dataset.del,1);renderRehab();}};
+  sumRehab();
+}
+function sumRehab(){
+  const mult=nz($("f_rehabmult").value)||1;
+  const base=REHAB.reduce((s,l)=>s+nz(l.cost),0)*mult;
+  const tot=Math.round(base*(1+pct($("f_conting").value)));
+  $("f_rehab").value=tot;
+  const sq=nz($("f_sqft").value), arv=nz($("f_arv").value);
+  setKpi("k_rehabpsf", sq?money(tot/sq,0)+"/sf":"—", tot/Math.max(sq,1)>75?"warn":"", sq?`${money(base)} scope${mult!==1?" @ "+mult.toFixed(2)+" index":""} + ${$("f_conting").value}% contingency`:"enter sq ft");
+  const ra=arv>0?tot/arv:0;
+  setKpi("k_rehabarv", arv?pctS(ra):"—", ra>0.30?"bad":ra>0.22?"warn":"good", ra>0.30?"very heavy — pros only":ra>0.22?"heavy lift":"manageable scope");
+  $("rehabTier").textContent=REHAB.length+" line items · "+money(tot);
+  run();
+}
+$("f_cond").addEventListener("change",loadScope);
+$("btnReloadScope").onclick=loadScope;
+$("f_conting").addEventListener("input",sumRehab);
+$("btnAddLine").onclick=()=>{REHAB.push({name:"New line item",cost:0});renderRehab();};
+
+/* ---------- comps ---------- */
+function renderComps(){
+  const tb=$("compTbl").querySelector("tbody"); tb.innerHTML="";
+  COMPS.forEach((c,i)=>{
+    const psf=nz(c.price)&&nz(c.sqft)?nz(c.price)/nz(c.sqft):0;
+    const tr=el("tr");
+    tr.innerHTML=`<td><input class="inp" style="padding:6px 8px;font-size:13px;min-width:130px" value="${(c.addr||"").replace(/"/g,"&quot;")}" data-i="${i}" data-k="addr"></td>
+     <td class="n"><input class="inp" type="number" style="padding:6px 8px;font-size:13px;text-align:right;width:96px" value="${c.price||""}" data-i="${i}" data-k="price"></td>
+     <td class="n"><input class="inp" type="number" style="padding:6px 8px;font-size:13px;text-align:right;width:74px" value="${c.sqft||""}" data-i="${i}" data-k="sqft"></td>
+     <td class="n" style="color:var(--txt2)">${psf?"$"+psf.toFixed(0):"—"}</td>
+     <td class="n"><input class="inp" type="number" step=".1" style="padding:6px 8px;font-size:13px;text-align:right;width:62px" value="${c.dist||""}" data-i="${i}" data-k="dist"></td>
+     <td class="n"><input class="inp" type="number" style="padding:6px 8px;font-size:13px;text-align:right;width:62px" value="${c.age||""}" data-i="${i}" data-k="age"></td>
+     <td><button class="x" data-del="${i}">×</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.oninput=e=>{const t=e.target;if(t.dataset.k){COMPS[+t.dataset.i][t.dataset.k]=t.dataset.k==="addr"?t.value:nz(t.value);calcARV();}};
+  tb.onchange=()=>renderComps();
+  tb.onclick=e=>{const b=e.target.closest("[data-del]");if(b){COMPS.splice(+b.dataset.del,1);renderComps();calcARV();}};
+  calcARV();
+}
+$("btnAddComp").onclick=()=>{COMPS.push({addr:"",price:0,sqft:0,dist:0,age:0});renderComps();};
+$("btnDemoComps").onclick=()=>{COMPS=DEMO_COMPS.map(c=>({...c}));renderComps();};
+
+let arvManual=false;
+$("f_arv").addEventListener("input",()=>{arvManual=true;sumRehab();run();});
+$("f_arvadj").addEventListener("input",()=>{arvManual=false;calcARV();});
+$("f_sqft").addEventListener("input",()=>{calcARV();});
+
+function calcARV(){
+  const r=arvFromComps(COMPS,$("f_sqft").value,$("f_arvadj").value);
+  setKpi("k_medpsf", r.n?money(r.med,0)+"/sf":"—","",r.n?`${r.n} comp${r.n>1?"s":""} · $${(r.lo||0).toFixed(0)}–$${(r.hi||0).toFixed(0)}`:"add comps");
+  setKpi("k_spread", r.n?pctS(r.spread,0):"—", r.spread>0.35?"bad":r.spread>0.20?"warn":"good", r.spread>0.35?"comps disagree — dig deeper":r.spread>0.20?"acceptable":"tight, trustworthy");
+  setKpi("k_conf", r.n?Math.round(r.conf*100)+"%":"—", r.conf<0.45?"bad":r.conf<0.7?"warn":"good", r.conf<0.45?"weak comp set":r.conf<0.7?"usable":"strong");
+  if(!arvManual&&r.arv>0)$("f_arv").value=Math.round(r.arv/500)*500;
+  const n=$("arvNote");
+  if(r.n>=3&&r.conf<0.5){n.style.display="";n.className="note warn";n.innerHTML="<b>Thin comp set.</b> Confidence is under 50% — the ARV driving every number on this page is a guess. Pull more closed sales before you commit money.";}
+  else if(r.n>0&&r.n<3){n.style.display="";n.className="note bad";n.innerHTML="<b>Under 3 comps.</b> That's not an ARV, that's an opinion. Add at least 3 closed sales inside a mile.";}
+  else if(r.n===0){n.style.display="";n.className="note bad";n.innerHTML="<b>No comps entered.</b> Enter sold comparables or set ARV manually — everything downstream depends on it.";}
+  else {n.style.display="none";}
+  sumRehab();
+}
+
+/* ---------- photos ---------- */
+$("phIn").addEventListener("change",e=>addPhotos(e.target.files));
+["dragover","dragenter"].forEach(v=>$("dropZone").addEventListener(v,e=>{e.preventDefault();$("dropZone").style.borderColor="var(--acc)";}));
+["dragleave","drop"].forEach(v=>$("dropZone").addEventListener(v,e=>{e.preventDefault();$("dropZone").style.borderColor="";}));
+$("dropZone").addEventListener("drop",e=>addPhotos(e.dataTransfer.files));
+function addPhotos(files){
+  [...files].filter(f=>f.type.startsWith("image/")).forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{PHOTOS.push({name:f.name,data:r.result,room:""});renderPhotos();};
+    r.readAsDataURL(f);
+  });
+}
+function renderPhotos(){
+  const g=$("phGrid"); g.innerHTML="";
+  PHOTOS.forEach((p,i)=>{
+    const d=el("div","ph");
+    d.innerHTML=`<img src="${p.data}" alt=""><button class="del" data-del="${i}">×</button>`+
+      (p.room?`<div class="rm">${p.room}</div>`:"");
+    g.appendChild(d);
+  });
+  g.onclick=e=>{const b=e.target.closest("[data-del]");if(b){PHOTOS.splice(+b.dataset.del,1);renderPhotos();}};
+}
+$("btnClearPh").onclick=()=>{PHOTOS=[];renderPhotos();};
+
+function promptPack(){
+  return `You are a general contractor and fix-and-flip estimator. I am attaching ${PHOTOS.length} photos of a property I am underwriting.
+
+PROPERTY
+  Address: ${$("f_addr").value||"(n/a)"}, ${$("f_city").value}, ${$("f_state").value} ${$("f_zip").value}
+  County: ${countyName()||"(n/a)"}
+  ${$("f_beds").value} bd / ${$("f_baths").value} ba · ${$("f_sqft").value} sqft · built ${$("f_year").value} · ${$("f_type").value}
+  Asking: $${nz($("f_list").value).toLocaleString()} · County appraised: $${nz($("f_cad").value).toLocaleString()}
+
+TASK
+1. Room by room, describe the condition you can actually see. Do not invent damage you cannot see.
+2. Flag anything that reads as a systems problem (roof age, foundation movement, electrical, plumbing, HVAC, water intrusion, pest).
+3. Grade overall condition as one of: turnkey / light / medium / heavy / gut.
+4. Build a line-item rehab budget in ${new Date().getFullYear()} dollars for this market, to a rent-ready-plus finish level (not luxury).
+5. List what you would need an inspector to verify before I remove my option period.
+
+Return ONLY this JSON, no prose around it:
+{
+  "condition": "turnkey|light|medium|heavy|gut",
+  "confidence": 0.0,
+  "observations": ["..."],
+  "redFlags": ["..."],
+  "inspectFirst": ["..."],
+  "lineItems": [{"name":"Roof - full replacement","cost":14500}],
+  "totalLow": 0,
+  "totalHigh": 0
+}`;
+}
+$("btnPrompt").onclick=async()=>{
+  const t=promptPack();
+  try{await navigator.clipboard.writeText(t);setStatus("aiStatus","Prompt copied. Open a Claude chat, attach your photos, paste this, then paste the JSON back below.","ok");}
+  catch(e){
+    const w=window.open("","_blank");
+    w.document.write("<pre style='white-space:pre-wrap;font:13px monospace;padding:16px'>"+t.replace(/</g,"&lt;")+"</pre>");
+    setStatus("aiStatus","Clipboard blocked — opened the prompt in a new tab instead.","ok");
+  }
+};
+$("btnAiApply").onclick=()=>{
+  try{
+    let raw=$("aiPaste").value.trim();
+    const m=raw.match(/\{[\s\S]*\}/); if(m)raw=m[0];
+    const j=JSON.parse(raw);
+    applyAI(j); setStatus("aiStatus","AI estimate applied to the scope of work.","ok");
+  }catch(e){setStatus("aiStatus","Couldn't read that JSON — paste the whole object including the braces.","err");}
+};
+function applyAI(j){
+  if(j.condition&&SCOPES[j.condition]){$("f_cond").value=j.condition;}
+  if(Array.isArray(j.lineItems)&&j.lineItems.length){
+    REHAB=j.lineItems.map(l=>({name:l.name||"item",cost:nz(l.cost)}));
+  } else if(j.totalHigh||j.totalLow){
+    loadScope();
+    const target=(nz(j.totalLow)+nz(j.totalHigh))/2||nz(j.totalHigh);
+    const cur=REHAB.reduce((s,l)=>s+l.cost,0);
+    if(cur>0&&target>0){const k=target/cur;REHAB=REHAB.map(l=>({...l,cost:Math.round(l.cost*k)}));}
+  } else loadScope();
+  renderRehab();
+  const notes=[].concat(j.redFlags||[],j.inspectFirst||[]);
+  if(notes.length)AIFLAGS=notes.slice(0,8); else AIFLAGS=[];
+  run();
+}
+let AIFLAGS=[];
+$("btnAI").onclick=async()=>{
+  if(!PHOTOS.length){setStatus("aiStatus","Add some photos first.","err");return;}
+  if($("aiMode").value==="offline"){$("btnPrompt").click();return;}
+  const key=$("aiKey").value.trim(), proxy=$("aiProxy").value.trim();
+  if(!key){setStatus("aiStatus","Direct mode needs an Anthropic API key.","err");return;}
+  setStatus("aiStatus",'<span class="spin"></span> Analyzing '+PHOTOS.length+' photos…');
+  const content=PHOTOS.slice(0,12).map(p=>({type:"image",source:{type:"base64",
+    media_type:(p.data.match(/^data:(image\/[a-z+]+);/)||[,"image/jpeg"])[1],
+    data:p.data.split(",")[1]}}));
+  content.push({type:"text",text:promptPack()});
+  const url=proxy||"https://api.anthropic.com/v1/messages";
+  try{
+    const res=await fetch(url,{method:"POST",headers:{"content-type":"application/json",
+      "x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:3000,messages:[{role:"user",content}]})});
+    if(!res.ok)throw new Error("HTTP "+res.status+" — "+(await res.text()).slice(0,180));
+    const j=await res.json();
+    const txt=(j.content||[]).map(c=>c.text||"").join("");
+    $("aiPaste").value=txt;
+    const m=txt.match(/\{[\s\S]*\}/);
+    if(m){applyAI(JSON.parse(m[0]));setStatus("aiStatus","Done — scope of work rebuilt from the photos.","ok");}
+    else setStatus("aiStatus","Model replied but not with JSON. Response is in the box below.","err");
+  }catch(e){
+    setStatus("aiStatus","Call failed: "+e.message+" — browsers block the Anthropic API directly, so set a proxy prefix (the included server does this).","err");
+  }
+};
+
+/* ---------- API pull ---------- */
+function apiURL(path,params){
+  const base=$("apiBase").value.replace(/\/$/,"");
+  const q=new URLSearchParams(params).toString();
+  const full=base+path+(q?"?"+q:"");
+  const px=$("apiProxy").value.trim();
+  return px?px+encodeURIComponent(full):full;
+}
+function addrStr(){return [$("f_addr").value,$("f_city").value,$("f_state").value,$("f_zip").value].filter(Boolean).join(", ");}
+async function apiGet(path,params,label){
+  const key=$("apiKey").value.trim();
+  if(!key){setStatus("apiStatus","Paste an API key first.","err");return null;}
+  if(!$("f_addr").value){setStatus("apiStatus","Enter the street address first.","err");return null;}
+  setStatus("apiStatus",'<span class="spin"></span> '+label+'…');
+  try{
+    const r=await fetch(apiURL(path,params),{headers:{"X-Api-Key":key,accept:"application/json"}});
+    if(!r.ok)throw new Error("HTTP "+r.status+" "+(await r.text()).slice(0,140));
+    setStatus("apiStatus",label+" ✓","ok");
+    return await r.json();
+  }catch(e){setStatus("apiStatus",label+" failed: "+e.message+" · If this says CORS or 'Failed to fetch', set the proxy prefix and run the included server.","err");return null;}
+}
+$("btnPullProp").onclick=async()=>{
+  const j=await apiGet("/properties",{address:addrStr()},"Property record");
+  if(!j)return;
+  const p=Array.isArray(j)?j[0]:(j.properties?j.properties[0]:j); if(!p)return;
+  const set=(id,v)=>{if(v!==undefined&&v!==null&&v!=="")$(id).value=v;};
+  set("f_beds",p.bedrooms); set("f_baths",p.bathrooms); set("f_sqft",p.squareFootage);
+  set("f_year",p.yearBuilt); set("f_lot",p.lotSize); if(p.propertyType)$("f_type").value=p.propertyType;
+  const ta=p.taxAssessments&&Object.values(p.taxAssessments).pop();
+  if(ta&&ta.value)set("f_cad",Math.round(ta.value));
+  const px=p.propertyTaxes&&Object.values(p.propertyTaxes).pop();
+  if(px&&px.total)set("f_tax",Math.round(px.total));
+  loadScope(); run();
+};
+$("btnPullAvm").onclick=async()=>{
+  const j=await apiGet("/avm/value",{address:addrStr(),compCount:10},"AVM + comps");
+  if(!j)return;
+  if(j.price){arvManual=true;$("f_arv").value=Math.round(j.price/500)*500;}
+  if(Array.isArray(j.comparables)){
+    COMPS=j.comparables.slice(0,10).map(c=>({addr:c.formattedAddress||c.addressLine1||"comp",
+      price:Math.round(nz(c.price)),sqft:Math.round(nz(c.squareFootage)),
+      dist:+(nz(c.distance).toFixed(2)),age:Math.round(nz(c.daysOld))}));
+    arvManual=false; renderComps();
+  }
+  run();
+};
+$("btnPullRent").onclick=async()=>{
+  const j=await apiGet("/avm/rent/long-term",{address:addrStr(),compCount:10},"Rent estimate");
+  if(j&&j.rent){$("f_rent").value=Math.round(j.rent);run();}
+};
+$("btnPullList").onclick=async()=>{
+  const j=await apiGet("/listings/sale",{city:$("f_city").value,state:$("f_state").value,limit:20},"Nearby listings");
+  if(!j)return;
+  const arr=Array.isArray(j)?j:[];
+  setStatus("apiStatus",`Found ${arr.length} active listings. Median ask $${Math.round(median(arr.map(x=>nz(x.price)).filter(Boolean))).toLocaleString()} · median DOM ${Math.round(median(arr.map(x=>nz(x.daysOnMarket)).filter(Boolean)))}.`,"ok");
+};
+
+/* ---------- county scraper ---------- */
+$("btnScrapeTest").onclick=async()=>{
+  setStatus("scrStatus",'<span class="spin"></span> Pinging…');
+  try{const r=await fetch($("scrBase").value.replace(/\/$/,"")+"/health");
+    setStatus("scrStatus",r.ok?"Backend is up ✓":"Backend answered "+r.status,r.ok?"ok":"err");
+  }catch(e){setStatus("scrStatus","No backend at that URL. Run: python3 county_scraper.py","err");}
+};
+$("btnScrape").onclick=async()=>{
+  const st=$("f_state").value,c=countyName();
+  if(!c){setStatus("scrStatus","Pick a county first.","err");return;}
+  setStatus("scrStatus",'<span class="spin"></span> Querying '+c+' County parcels…');
+  try{
+    const u=$("scrBase").value.replace(/\/$/,"")+"/parcel?"+new URLSearchParams({state:st,county:c,address:$("f_addr").value,city:$("f_city").value,zip:$("f_zip").value});
+    const r=await fetch(u); if(!r.ok)throw new Error("HTTP "+r.status+" "+(await r.text()).slice(0,160));
+    applyParcel(await r.json());
+    setStatus("scrStatus","Parcel data applied ✓","ok");
+  }catch(e){setStatus("scrStatus","Scrape failed: "+e.message,"err");}
+};
+$("btnScrPaste").onclick=()=>{
+  try{applyParcel(JSON.parse($("scrPaste").value));setStatus("scrStatus","Applied ✓","ok");}
+  catch(e){setStatus("scrStatus","That isn't valid JSON.","err");}
+};
+function applyParcel(p){
+  const map={sqft:"f_sqft",squareFootage:"f_sqft",yearBuilt:"f_year",year:"f_year",
+    appraisedValue:"f_cad",assessedValue:"f_cad",marketValue:"f_cad",
+    annualTax:"f_tax",tax:"f_tax",beds:"f_beds",bedrooms:"f_beds",
+    baths:"f_baths",bathrooms:"f_baths",lotSqft:"f_lot",lotSize:"f_lot"};
+  Object.entries(p||{}).forEach(([k,v])=>{
+    const id=map[k]; if(id&&v!==null&&v!==undefined&&v!=="")$(id).value=v;
+  });
+  loadScope(); run();
+}
+
+/* ---------- CSV batch ---------- */
+$("btnCsvSample").onclick=()=>{
+  $("csvBox").value=`address,city,state,zip,beds,baths,sqft,year,list,cad,rent,rehab,arv
+1420 Maple St,Fort Worth,TX,76104,3,2,1450,1968,185000,171400,1750,52000,270000
+908 Hillcrest Dr,Fort Worth,TX,76110,3,1,1180,1955,142000,138900,1500,64000,215000
+2210 Ridgeway Ave,Arlington,TX,76013,4,2,1890,1979,248000,241000,2200,44000,325000
+615 Sycamore Ln,Fort Worth,TX,76107,2,1,980,1948,129000,118500,1300,71000,196000`;
+};
+$("btnCsvRun").onclick=()=>{
+  const lines=$("csvBox").value.trim().split(/\r?\n/).filter(Boolean);
+  if(lines.length<2){$("csvOut").innerHTML='<p class="hint">Need a header row plus at least one property.</p>';return;}
+  const hdr=lines[0].split(",").map(s=>s.trim().toLowerCase());
+  const rows=lines.slice(1).map(l=>{const c=l.split(",");const o={};hdr.forEach((h,i)=>o[h]=(c[i]||"").trim());return o;});
+  const base=readForm();
+  const out=rows.map(r=>{
+    const sq=nz(r.sqft)||1;
+    // Use the row's own ARV. Only fall back to the subject's comp $/sqft when the
+    // row is in the same city -- otherwise an out-of-market ARV is pure fiction.
+    const sameCity=(r.city||"").trim().toLowerCase()===(base.city||"").trim().toLowerCase();
+    const psf=sameCity?(median(COMPS.filter(c=>nz(c.sqft)).map(c=>nz(c.price)/nz(c.sqft)))||0):0;
+    const arv=nz(r.arv)||(psf?Math.round(psf*sq):Math.round(nz(r.list)*1.05));
+    const arvGuessed=!nz(r.arv);
+    const d={...base,sqft:sq,arv,rehab:nz(r.rehab),list:nz(r.list),rent:nz(r.rent)||base.rent,
+             tax:nz(r.tax)||Math.round(nz(r.cad)*0.025),purchase:nz(r.list)};
+    const mao=maoProfit(d,nz(base.targprofit));
+    const mao70=arv*pct(base.rule)-nz(r.rehab);
+    const off=Math.min(mao,mao70);
+    const sc=scoreDeal({...d,purchase:Math.max(0,off)});
+    const best=Object.entries(sc.s).sort((a,b)=>b[1]-a[1])[0];
+    return {addr:r.address||"—",list:nz(r.list),arv,rehab:nz(r.rehab),offer:off,
+      disc:nz(r.list)>0?(nz(r.list)-off)/nz(r.list):0, best:best[0], score:best[1], arvGuessed,
+      profit:sc.f.profit, cf:sc.r.cfMo};
+  }).sort((a,b)=>b.score-a.score);
+  const nm={flip:"Flip",rent:"Rental",brrrr:"BRRRR",whole:"Wholesale"};
+  $("csvOut").innerHTML=`<div class="scroller"><table class="tbl"><thead><tr>
+    <th>Property</th><th class="n">List</th><th class="n">ARV</th><th class="n">Max offer</th>
+    <th class="n">Cut</th><th>Play</th><th class="n">Score</th></tr></thead><tbody>`+
+    out.map(o=>`<tr><td>${o.addr}</td><td class="n">${money(o.list)}</td><td class="n">${money(o.arv)}</td>
+      <td class="n" style="color:${o.offer>0&&o.offer<o.list?"var(--good)":"var(--bad)"}">${money(Math.max(0,o.offer))}</td>
+      <td class="n">${o.disc>0?pctS(o.disc,0):"—"}</td><td>${nm[o.best]}</td>
+      <td class="n"><span class="pill ${o.score>=65?"good":o.score>=45?"warn":"bad"}">${Math.round(o.score)}</span></td></tr>`).join("")+
+    `</tbody></table></div><p class="hint">Ranked by the best available strategy for each. "Cut" is how far under asking your max offer sits — anything over 25% usually means the seller says no. An <span style="color:var(--warn)">*</span> on ARV means the row had no <code>arv</code> column, so it was estimated — add one for numbers you can trust.</p>`;
+};
+
+/* ---------- read form ---------- */
+function readForm(){
+  const g=id=>$(id)?$(id).value:"";
+  return {
+    addr:g("f_addr"),city:g("f_city"),state:g("f_state"),zip:g("f_zip"),county:countyName(),
+    beds:g("f_beds"),baths:g("f_baths"),sqft:g("f_sqft"),year:g("f_year"),lot:g("f_lot"),type:g("f_type"),
+    list:g("f_list"),cad:g("f_cad"),tax:g("f_tax"),dom:g("f_dom"),
+    cond:g("f_cond"),conting:g("f_conting"),rehab:g("f_rehab"),market:g("f_market"),rehabmult:g("f_rehabmult"),
+    arvadj:g("f_arvadj"),arv:g("f_arv"),
+    rule:g("f_rule"),targprofit:g("f_targprofit"),offer:g("f_offer"),
+    dp:g("f_dp"),hmrate:g("f_hmrate"),points:g("f_points"),hold:g("f_hold"),
+    bclose:g("f_bclose"),sclose:g("f_sclose"),carry:g("f_carry"),rehabfin:g("f_rehabfin"),
+    rent:g("f_rent"),othinc:g("f_othinc"),vac:g("f_vac"),maint:g("f_maint"),capex:g("f_capex"),
+    mgmt:g("f_mgmt"),ins:g("f_ins"),hoa:g("f_hoa"),othexp:g("f_othexp"),
+    rdp:g("f_rdp"),rrate:g("f_rrate"),rterm:g("f_rterm"),
+    refiltv:g("f_refiltv"),refirate:g("f_refirate"),refiterm:g("f_refiterm"),reficost:g("f_reficost"),season:g("f_season"),
+    assign:g("f_assign"),buyerrule:g("f_buyerrule"),wcost:g("f_wcost")
+  };
+}
+function setKpi(id,val,cls,sub){
+  const k=$(id); if(!k)return;
+  k.className="kpi"+(cls?" "+cls:"");
+  k.querySelector(".v").textContent=val;
+  if(sub!==undefined)k.querySelector(".s").textContent=sub;
+}
+function setStatus(id,msg,cls){const s=$(id);s.className="status"+(cls?" "+cls:"");s.innerHTML=msg;}
+function ledger(host,rows){
+  $(host).innerHTML=rows.map(r=>{
+    if(r.h)return `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);font-weight:700;margin:13px 0 4px">${r.h}</div>`;
+    return `<div class="led ${r.cls||""}"><span class="lbl">${r.k}</span><b>${r.v}</b></div>`;
+  }).join("");
+}
+
+/* ============================================================
+   RUN — recompute everything
+   ============================================================ */
+function run(){
+  const d=readForm();
+  // property KPIs
+  const list=nz(d.list),cad=nz(d.cad),sq=nz(d.sqft);
+  const ratio=cad>0?list/cad:0;
+  setKpi("k_cadratio",cad?ratio.toFixed(2)+"×":"—",ratio>1.25?"bad":ratio>1.08?"warn":"good",
+    cad?(ratio>1.25?"asking way over appraised":ratio<0.95?"asking under appraised — dig in":"in a normal band"):"enter appraised value");
+  setKpi("k_taxrate",cad?pctS(nz(d.tax)/cad,2):"—",nz(d.tax)/Math.max(cad,1)>0.025?"warn":"", "tax ÷ appraised");
+  setKpi("k_ppsf",sq?money(list/sq,0)+"/sf":"—","","asking ÷ sq ft");
+  const cn=$("cadNote");
+  if(cad>0&&list>0){
+    cn.style.display="";
+    if(ratio>1.3){cn.className="note bad";cn.innerHTML=`<b>Asking is ${((ratio-1)*100).toFixed(0)}% over the county's appraised value.</b> Sometimes that's a stale assessment, sometimes it's a seller dreaming. Pull the assessment year before you argue price — it's your best negotiating document.`;}
+    else if(ratio<0.9){cn.className="note warn";cn.innerHTML=`<b>Asking is below county appraised value.</b> That usually means condition. Assume the photos are hiding something and budget for it.`;}
+    else{cn.className="note";cn.innerHTML=`Asking sits <b>${ratio>=1?((ratio-1)*100).toFixed(0)+"% above":((1-ratio)*100).toFixed(0)+"% below"}</b> the county's number — a normal band. The county figure is still your cheapest leverage in a price conversation.`;}
+  } else cn.style.display="none";
+
+  // determine purchase price used
+  const arv=nz(d.arv);
+  const mao70=arv*pct(d.rule)-nz(d.rehab);
+  const maoP=maoProfit(d,d.targprofit);
+  const maoFinal=Math.min(mao70,maoP);
+  if(nz(d.offer)===0&&maoFinal>0){$("f_offer").value=Math.round(maoFinal/500)*500;}
+  const purchase=nz($("f_offer").value)||Math.max(0,maoFinal);
+  const D={...d,purchase};
+
+  setKpi("k_mao70",arv?money(mao70):"—",mao70<=0?"bad":"", `${d.rule}% of ${money(arv)} − rehab`);
+  setKpi("k_maoprofit",arv?money(maoP):"—",maoP<=0?"bad":"", `backs out ${money(nz(d.targprofit))} profit`);
+  setKpi("k_maofinal",arv?money(maoFinal):"—",maoFinal<=0?"bad":maoFinal<list*0.75?"warn":"good",
+    list>0&&maoFinal>0?`${pctS((list-maoFinal)/list,0)} under asking`:"the number to walk in with");
+
+  // FLIP
+  const f=flip(D);
+  ledger("flipLedger",[
+    {h:"In"},
+    {k:"Purchase price",v:money(f.purchase),cls:"neg"},
+    {k:"Rehab (incl. contingency)",v:money(f.rehab),cls:"neg"},
+    {k:"Buy-side closing",v:money(f.buyClose),cls:"neg"},
+    {h:"Carry"},
+    {k:`Loan points (${d.points}% of ${money(f.loan)})`,v:money(f.pointsCost),cls:"neg"},
+    {k:`Interest — ${d.hold} mo @ ${d.hmrate}%`,v:money(f.interest),cls:"neg"},
+    {k:"Taxes, insurance, utilities",v:money(f.carry),cls:"neg"},
+    {h:"Out"},
+    {k:"Sale price (ARV)",v:money(f.arv),cls:"pos"},
+    {k:`Sell costs (${d.sclose}%)`,v:money(f.sellClose),cls:"neg"},
+    {k:"Net profit",v:money(f.profit),cls:"tot "+(f.profit>0?"pos":"neg")}
+  ]);
+  setKpi("k_fprofit",money(f.profit),f.profit<15000?"bad":f.profit<30000?"warn":"good","after every cost");
+  setKpi("k_fmargin",pctS(f.margin),f.margin<0.10?"bad":f.margin<0.15?"warn":"good",f.margin<0.10?"too thin to absorb a surprise":"want 15%+");
+  setKpi("k_froi",pctS(f.roi),f.roi<0.15?"bad":f.roi<0.30?"warn":"good","profit ÷ cash in");
+  setKpi("k_fann",pctS(f.ann),f.ann<0.25?"bad":f.ann<0.50?"warn":"good",`over ${d.hold} months`);
+  setKpi("k_fbreak",money(f.breakeven),"",arv>0?`${pctS((arv-f.breakeven)/arv,0)} cushion below ARV`:"—");
+  setKpi("k_fcash",money(f.cashIn),"","what leaves your account");
+
+  // RENTAL
+  const r=rental(D);
+  ledger("rentLedger",[
+    {h:"Income"},
+    {k:"Gross scheduled rent",v:money(r.gsi),cls:"pos"},
+    {k:`Vacancy (${d.vac}%)`,v:money(-r.vac),cls:"neg"},
+    {k:"Effective gross income",v:money(r.egi)},
+    {h:"Operating expenses"},
+    {k:`Maintenance (${d.maint}%)`,v:money(-r.maint),cls:"neg"},
+    {k:`CapEx reserve (${d.capex}%)`,v:money(-r.capex),cls:"neg"},
+    {k:`Management (${d.mgmt}%)`,v:money(-r.mgmt),cls:"neg"},
+    {k:"Property tax",v:money(-r.tax),cls:"neg"},
+    {k:"Insurance",v:money(-r.ins),cls:"neg"},
+    {k:"HOA + other",v:money(-(r.hoa+r.oth)),cls:"neg"},
+    {k:"Net operating income",v:money(r.noi),cls:"tot"},
+    {h:"Debt"},
+    {k:`Loan ${money(r.loan)} @ ${d.rrate}% / ${d.rterm}yr`,v:money(r.mo)+"/mo"},
+    {k:"Annual debt service",v:money(-r.ds),cls:"neg"},
+    {k:"Annual cash flow",v:money(r.cf),cls:"tot "+(r.cf>0?"pos":"neg")}
+  ]);
+  setKpi("k_cf",money(r.cfMo),r.cfMo<0?"bad":r.cfMo<150?"warn":"good","after debt service");
+  setKpi("k_cap",pctS(r.cap),r.cap<0.05?"bad":r.cap<0.065?"warn":"good","NOI ÷ all-in "+money(r.allIn));
+  setKpi("k_coc",pctS(r.coc),r.coc<0.04?"bad":r.coc<0.08?"warn":"good","on "+money(r.cashIn)+" cash");
+  setKpi("k_dscr",isFinite(r.dscr)?r.dscr.toFixed(2):"∞",r.dscr<1?"bad":r.dscr<1.2?"warn":"good",r.dscr<1.2?"below most lenders' floor":"lenders want 1.20+");
+  setKpi("k_onepct",pctS(r.onePct,2),r.onePct<0.007?"bad":r.onePct<0.01?"warn":"good","rent ÷ all-in");
+  setKpi("k_grm",r.grm?r.grm.toFixed(1):"—",r.grm>12?"warn":"","price ÷ gross rent");
+
+  // BRRRR
+  const b=brrrr(D);
+  ledger("brrrrLedger",[
+    {h:"Buy + rehab"},
+    {k:"All-in (purchase, rehab, closing, carry)",v:money(b.allIn),cls:"neg"},
+    {k:"Your cash into the deal",v:money(b.cashIn),cls:"neg"},
+    {h:`Refinance at month ${d.season}`},
+    {k:`New loan (${d.refiltv}% of ${money(nz(d.arv))} ARV)`,v:money(b.refiLoan),cls:"pos"},
+    {k:"Pay off acquisition loan",v:money(-b.payoff),cls:"neg"},
+    {k:`Refi closing (${d.reficost}%)`,v:money(-b.refiCost),cls:"neg"},
+    {k:"Cash back in your pocket",v:money(b.proceeds),cls:"tot "+(b.proceeds>0?"pos":"neg")},
+    {h:"After the refi"},
+    {k:`New payment @ ${d.refirate}% / ${d.refiterm}yr`,v:money(b.newMo)+"/mo",cls:"neg"},
+    {k:"NOI ÷ 12",v:money(b.noi/12)+"/mo",cls:"pos"},
+    {k:"Monthly cash flow",v:money(b.cfMo)+"/mo",cls:"tot "+(b.cfMo>0?"pos":"neg")}
+  ]);
+  setKpi("k_bleft",money(b.cashLeft),b.cashLeft<=0?"good":b.cashLeft<25000?"warn":"bad",b.cashLeft<=0?"full capital recycle":"stuck in the deal");
+  setKpi("k_bpull",pctS(Math.min(b.recycled,1)),b.recycled>=0.95?"good":b.recycled>=0.7?"warn":"bad","% of cash back out");
+  setKpi("k_bcf",money(b.cfMo),b.cfMo<0?"bad":b.cfMo<150?"warn":"good","monthly, after new note");
+  setKpi("k_bcoc",isFinite(b.coc)?pctS(b.coc):"∞",isFinite(b.coc)&&b.coc<0.08?"warn":"good",b.cashLeft<=0?"you pulled it all back out":"on "+money(b.cashLeft)+" left in");
+  setKpi("k_bequity",money(b.equity),b.equity<20000?"warn":"good","ARV − all-in");
+  setKpi("k_bdscr",isFinite(b.dscr)?b.dscr.toFixed(2):"∞",b.dscr<1.2?"bad":"good",b.dscr<1.2?"refi may not close":"refi should clear");
+
+  // WHOLESALE
+  const w=wholesale(D);
+  ledger("wholeLedger",[
+    {k:`Investor-buyer's max (${d.buyerrule}% rule)`,v:money(w.buyerMax)},
+    {k:"Less your assignment fee",v:money(-nz(d.assign)),cls:"neg"},
+    {k:"Max you can contract at",v:money(w.maxContract),cls:"tot"},
+    {h:"Your side"},
+    {k:"Assignment fee",v:money(nz(d.assign)),cls:"pos"},
+    {k:"Marketing, EMD, title",v:money(-nz(d.wcost)),cls:"neg"},
+    {k:"Net to you",v:money(w.spread),cls:"tot "+(w.spread>0?"pos":"neg")}
+  ]);
+  setKpi("k_wmao",money(w.maxContract),w.maxContract<=0?"bad":"","what you can tie it up at");
+  setKpi("k_wbuyer",money(w.buyerMax),"","what an investor pays");
+  setKpi("k_wspread",money(w.spread),w.spread<5000?"bad":w.spread<10000?"warn":"good","fee minus costs");
+  const wroomPct=list>0?w.room/list:1;
+  setKpi("k_wroom",money(w.room),w.maxContract<=0?"bad":wroomPct<=0.15?"good":wroomPct<=0.30?"warn":"bad",
+    w.maxContract<=0?"no room — rehab eats the deal":list>0?"seller must come down "+pctS(wroomPct,0):"—");
+
+  // SCORES + strategy bars
+  const {s}=scoreDeal(D);
+  const names={flip:"Flip",rent:"Rental",brrrr:"BRRRR",whole:"Wholesale"};
+  const ranked=Object.entries(s).sort((a,b)=>b[1]-a[1]);
+  $("stratBars").innerHTML=ranked.map(([k,v])=>{
+    const col=v>=65?"var(--good)":v>=45?"var(--warn)":"var(--bad)";
+    return `<div class="barrow"><span class="nm">${names[k]}</span>
+      <span class="tr"><i style="width:${Math.max(2,v)}%;background:${col}"></i></span>
+      <span class="vl" style="color:${col}">${Math.round(v)}/100</span></div>`;
+  }).join("");
+
+  // STRESS
+  const st=stress(D);
+  $("stressTbl").querySelector("tbody").innerHTML=st.map(x=>
+    `<tr><td><span class="pill ${x.name==="Best"?"good":x.name==="Worst"?"bad":"mute"}">${x.name}</span>
+      <span style="color:var(--txt3);font-size:11px"> ${Math.round(x.p*100)}%</span></td>
+     <td class="n">${money(x.arv)}</td><td class="n">${money(x.rehab)}</td>
+     <td class="n" style="color:${x.profit>0?"var(--good)":"var(--bad)"}">${money(x.profit)}</td>
+     <td class="n" style="color:${x.cfMo>0?"var(--good)":"var(--bad)"}">${money(x.cfMo)}</td>
+     <td class="n">${pctS(x.roi,0)}</td></tr>`).join("");
+  const ev=st.reduce((a,x)=>a+x.p*x.profit,0);
+  const worst=st[2], best=st[0];
+  const down=Math.min(0,worst.profit);
+  setKpi("k_ev",money(ev),ev<15000?"bad":ev<30000?"warn":"good","probability-weighted");
+  setKpi("k_downside",money(down),down<-10000?"bad":down<0?"warn":"good",down<0?"you'd write a check":"worst case still profits");
+  // A worst case that is small relative to the cash at risk is noise, not risk --
+  // reporting 90:1 off a $564 loss reads as precision that isn't there.
+  const trivial=Math.abs(down)<Math.max(2000,f.cashIn*0.04);
+  const rr=down<0?best.profit/Math.abs(down):Infinity;
+  if(best.profit<=0) setKpi("k_rr","no upside","bad","even the best case loses money");
+  else if(down>=0) setKpi("k_rr","no downside","good","worst case still turns a profit");
+  else if(trivial) setKpi("k_rr","≈ no risk","good","worst case is only "+money(Math.abs(down))+" — noise");
+  else             setKpi("k_rr",Math.min(rr,20).toFixed(1)+(rr>20?"+:1":":1"),rr<2?"bad":rr<3?"warn":"good","upside ÷ worst-case loss");
+  setKpi("k_atrisk",money(f.cashIn),f.cashIn>100000?"warn":"","your cash exposed");
+
+  // VERDICT
+  const topScore=ranked[0][1], topName=names[ranked[0][0]];
+  const conf=arvFromComps(COMPS,d.sqft,d.arvadj).conf;
+  const adj=topScore*(0.55+0.45*clamp(conf,0,1));
+  const V=Math.round(adj);
+  const bar=$("vBar");
+  bar.style.width=Math.max(2,V)+"%";
+  let head,tone,sub;
+  if(V>=68){head="BUY";tone="var(--good)";sub=`The numbers work as a <b>${topName.toLowerCase()}</b>. Walk in at <b>${money(maoFinal)}</b>. Expected profit ${money(ev)}, worst case ${money(worst.profit)}.`;}
+  else if(V>=50){head="BUY — AT YOUR PRICE";tone="var(--warn)";sub=`Works as a <b>${topName.toLowerCase()}</b> but only if you get it at <b>${money(maoFinal)}</b> or below. At asking (${money(list)}) it doesn't. No emotional bidding.`;}
+  else if(V>=32){head="THIN";tone="var(--warn)";sub=`Best play is <b>${topName.toLowerCase()}</b> and it's marginal. One surprise eats the profit. Only take it if you can buy it well under ${money(maoFinal)} or you have a specific edge.`;}
+  else{head="PASS";tone="var(--bad)";sub=`Nothing here clears. Best case is <b>${topName.toLowerCase()}</b> at ${Math.round(topScore)}/100. Worst case you're out ${money(Math.abs(down))}. Let someone else learn this lesson.`;}
+  bar.style.background=tone;
+  $("vBig").textContent=head; $("vBig").style.color=tone;
+  $("vSub").innerHTML=sub;
+  $("vScore").textContent=V+" / 100";
+  const chip=$("topChip");
+  chip.textContent=head.split(" ")[0]; chip.className="verdictchip pill "+(V>=68?"good":V>=50?"warn":V>=32?"warn":"bad");
+  $("brandSub").textContent=(d.addr?d.addr+", ":"")+(d.city||"")+(d.county?" · "+d.county+" Co.":"")||"no property loaded";
+  $("footT").textContent="Walk-in offer · "+topName;
+  $("footM").textContent=money(maoFinal);
+
+  // FLAGS
+  const flags=[];
+  const push=(t,txt)=>flags.push({t,txt});
+  if(conf<0.5)push("bad","Comp confidence is "+Math.round(conf*100)+"%. The ARV — and therefore every number here — is soft.");
+  else if(conf>0.75)push("good","Strong comp set. The ARV is defensible to a lender or a partner.");
+  if(f.margin<0.12&&arv>0)push("bad","Flip margin under 12% of ARV. No room for a surprise.");
+  if(f.margin>=0.18)push("good","Flip margin above 18% — real cushion.");
+  if(nz(d.rehab)/Math.max(arv,1)>0.28)push("bad","Rehab is over 28% of ARV. That's a contractor-grade project, not a weekend.");
+  if(nz(d.year)<1978)push("warn","Built before 1978 — lead paint disclosure applies, and asbestos is likely in flooring or texture.");
+  if(nz(d.year)<1960)push("warn","Pre-1960 — assume cast iron drain lines, cloth wiring and an original panel until proven otherwise.");
+  if(ratio>1.25)push("warn","Asking is well above county appraised value. Bring the assessment printout to the table.");
+  if(nz(d.dom)>90)push("good","Over 90 days on market — the seller is tired. That's your leverage.");
+  else if(nz(d.dom)<10&&nz(d.dom)>0)push("warn","Fresh listing. Sellers rarely discount in week one.");
+  if(r.dscr<1.2&&r.dscr>0)push("warn","DSCR under 1.20 — a DSCR lender likely won't fund the rental exit.");
+  if(r.cfMo<0)push("bad","Rental exit is cash-flow negative. You have no fallback if the flip doesn't sell.");
+  else if(r.cfMo>250)push("good","Rental fallback cash flows "+money(r.cfMo)+"/mo — you can hold it if the market turns.");
+  if(b.cashLeft<=0)push("good","BRRRR pulls all your capital back out. That's an infinite-return structure.");
+  if(f.cashIn>120000)push("warn",money(f.cashIn)+" of your cash is exposed on one address. Concentration risk.");
+  if(worst.profit<0)push("bad","Worst case is a "+money(Math.abs(worst.profit))+" loss. Know that number before you sign.");
+  AIFLAGS.forEach(t=>push("warn","From the photos: "+t));
+  $("flagList").innerHTML=flags.length?flags.map(x=>
+    `<div class="led"><span class="lbl">${x.txt}</span><span class="pill ${x.t}">${x.t==="good"?"GOOD":x.t==="bad"?"RISK":"WATCH"}</span></div>`).join("")
+    :'<p class="hint">Nothing flagged yet — fill in the property and comps.</p>';
+
+  // OFFER SHEET
+  $("offerSheet").innerHTML=[
+    {k:"Property",v:(d.addr||"—")+", "+(d.city||"")+" "+(d.state||"")},
+    {k:"County",v:(d.county||"—")+" · appraised "+money(cad)},
+    {k:"ARV",v:money(arv)+" ("+Math.round(conf*100)+"% confidence)"},
+    {k:"Rehab budget",v:money(nz(d.rehab))},
+    {k:"Asking",v:money(list)},
+    {k:"Your offer",v:money(maoFinal),cls:"tot"},
+    {k:"Discount to asking",v:list>0?pctS((list-maoFinal)/list,0):"—"},
+    {k:"Best strategy",v:topName+" ("+Math.round(topScore)+"/100)"},
+    {k:"Expected profit",v:money(ev)},
+    {k:"Worst case",v:money(worst.profit)},
+    {k:"Verdict",v:head,cls:"tot"}
+  ].map(x=>`<div class="led ${x.cls||""}"><span class="lbl">${x.k}</span><b>${x.v}</b></div>`).join("");
+
+  LAST={d:D,f,r,b,w,s,st,ev,V,head,topName,maoFinal,conf};
+}
+
+$("btnRun").onclick=()=>{run();document.querySelector('#tabs button[data-p="verdict"]').click();};
+$("btnCopyOffer").onclick=async()=>{
+  if(!LAST)run();
+  const L=LAST,d=L.d;
+  const t=`OFFER ANALYSIS — ${d.addr||"(address)"}, ${d.city} ${d.state} ${d.zip}
+County: ${d.county||"—"}  ·  Appraised: ${money(nz(d.cad))}
+${d.beds}bd/${d.baths}ba · ${d.sqft} sqft · built ${d.year}
+
+ARV                 ${money(nz(d.arv))}   (${Math.round(L.conf*100)}% comp confidence)
+Rehab budget        ${money(nz(d.rehab))}
+Asking              ${money(nz(d.list))}
+MAO (${d.rule}% rule)      ${money(nz(d.arv)*pct(d.rule)-nz(d.rehab))}
+MAO (profit-backed) ${money(maoProfit(d,d.targprofit))}
+>> WALK-IN OFFER    ${money(L.maoFinal)}
+
+FLIP    profit ${money(L.f.profit)} · margin ${pctS(L.f.margin)} · ${pctS(L.f.ann)} annualized · cash in ${money(L.f.cashIn)}
+RENTAL  ${money(L.r.cfMo)}/mo · cap ${pctS(L.r.cap)} · CoC ${pctS(L.r.coc)} · DSCR ${isFinite(L.r.dscr)?L.r.dscr.toFixed(2):"∞"}
+BRRRR   cash left in ${money(L.b.cashLeft)} · ${money(L.b.cfMo)}/mo after refi
+WHOLE   contract at ${money(L.w.maxContract)} · net ${money(L.w.spread)}
+
+STRESS  best ${money(L.st[0].profit)} / base ${money(L.st[1].profit)} / worst ${money(L.st[2].profit)}
+        expected ${money(L.ev)}
+
+VERDICT ${L.head} — ${L.topName} — ${L.V}/100`;
+  try{await navigator.clipboard.writeText(t);alert("Offer summary copied.");}
+  catch(e){const w=window.open("","_blank");w.document.write("<pre style='white-space:pre-wrap;font:13px monospace;padding:16px'>"+t.replace(/</g,"&lt;")+"</pre>");}
+};
+
+/* ---------- persistence ---------- */
+function snapshot(){return {form:readForm(),comps:COMPS,rehab:REHAB,arvManual,ver:1};}
+function restore(o){
+  if(!o)return;
+  const f=o.form||{};
+  const m={addr:"f_addr",city:"f_city",state:"f_state",zip:"f_zip",beds:"f_beds",baths:"f_baths",
+    sqft:"f_sqft",year:"f_year",lot:"f_lot",type:"f_type",list:"f_list",cad:"f_cad",tax:"f_tax",dom:"f_dom",
+    cond:"f_cond",conting:"f_conting",market:"f_market",rehabmult:"f_rehabmult",arvadj:"f_arvadj",arv:"f_arv",rule:"f_rule",targprofit:"f_targprofit",
+    offer:"f_offer",dp:"f_dp",hmrate:"f_hmrate",points:"f_points",hold:"f_hold",bclose:"f_bclose",
+    sclose:"f_sclose",carry:"f_carry",rehabfin:"f_rehabfin",rent:"f_rent",othinc:"f_othinc",vac:"f_vac",
+    maint:"f_maint",capex:"f_capex",mgmt:"f_mgmt",ins:"f_ins",hoa:"f_hoa",othexp:"f_othexp",rdp:"f_rdp",
+    rrate:"f_rrate",rterm:"f_rterm",refiltv:"f_refiltv",refirate:"f_refirate",refiterm:"f_refiterm",
+    reficost:"f_reficost",season:"f_season",assign:"f_assign",buyerrule:"f_buyerrule",wcost:"f_wcost"};
+  if(f.state){$("f_state").value=f.state;fillCounties();}
+  Object.entries(m).forEach(([k,id])=>{if(f[k]!==undefined&&$(id))$(id).value=f[k];});
+  if(f.county){const s=$("f_county");if([...s.options].some(o=>o.value===f.county))s.value=f.county;
+    else{s.value="__other";countyChanged();if($("countyManual"))$("countyManual").value=f.county;}}
+  COMPS=o.comps||[]; REHAB=o.rehab||[]; arvManual=!!o.arvManual;
+  renderComps(); renderRehab(); run();
+}
+$("btnSave").onclick=()=>{
+  try{sessionStorageShim.set(STORE,JSON.stringify(snapshot()));$("savedTag").textContent="saved "+new Date().toLocaleTimeString();}
+  catch(e){$("savedTag").textContent="save failed";}
+};
+/* in-memory store (no browser storage APIs used) */
+const sessionStorageShim=(()=>{const m={};return{set:(k,v)=>m[k]=v,get:k=>m[k]||null};})();
+$("btnExport").onclick=()=>{
+  const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=(($("f_addr").value||"deal").replace(/[^\w]+/g,"_"))+".json";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$("btnImport").onclick=()=>{
+  const i=document.createElement("input");i.type="file";i.accept=".json,application/json";
+  i.onchange=()=>{if(!i.files[0])return;const r=new FileReader();r.onload=()=>{try{restore(JSON.parse(r.result));}catch(e){alert("Not a valid deal file.");}};r.readAsText(i.files[0]);};
+  i.click();
+};
+$("btnCSV").onclick=()=>{
+  if(!LAST)run();
+  const L=LAST,d=L.d;
+  const rows=[["Field","Value"],
+    ["Address",d.addr],["City",d.city],["State",d.state],["Zip",d.zip],["County",d.county],
+    ["Beds",d.beds],["Baths",d.baths],["SqFt",d.sqft],["Year",d.year],
+    ["List price",nz(d.list)],["County appraised",nz(d.cad)],["Annual tax",nz(d.tax)],
+    ["ARV",nz(d.arv)],["Comp confidence",(L.conf*100).toFixed(0)+"%"],["Rehab",nz(d.rehab)],
+    ["Walk-in offer",Math.round(L.maoFinal)],
+    ["Flip profit",Math.round(L.f.profit)],["Flip margin",(L.f.margin*100).toFixed(1)+"%"],
+    ["Flip cash required",Math.round(L.f.cashIn)],["Flip annualized ROI",(L.f.ann*100).toFixed(1)+"%"],
+    ["Rental cash flow /mo",Math.round(L.r.cfMo)],["Cap rate",(L.r.cap*100).toFixed(2)+"%"],
+    ["Cash-on-cash",(L.r.coc*100).toFixed(2)+"%"],["DSCR",isFinite(L.r.dscr)?L.r.dscr.toFixed(2):"inf"],
+    ["BRRRR cash left in",Math.round(L.b.cashLeft)],["BRRRR CF /mo",Math.round(L.b.cfMo)],
+    ["Wholesale contract max",Math.round(L.w.maxContract)],["Wholesale net",Math.round(L.w.spread)],
+    ["Expected profit",Math.round(L.ev)],["Worst case profit",Math.round(L.st[2].profit)],
+    ["Best strategy",L.topName],["Score",L.V],["Verdict",L.head]];
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=(($("f_addr").value||"deal").replace(/[^\w]+/g,"_"))+"_analysis.csv";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$("btnDemo").onclick=()=>{loadDemo($("f_market").value==="mcallen"?"fortworth":"mcallen");};
+$("btnReset").onclick=()=>{if(confirm("Clear everything and start fresh?"))location.reload();};
+
+function loadDemo(which){
+  const set=(id,v)=>{if($(id))$(id).value=v;};
+  if(which==="fortworth"){
+    $("f_market").value="fortworth";
+    set("f_addr","1420 Maple St");set("f_city","Fort Worth");set("f_zip","76104");
+    set("f_beds",3);set("f_baths",2);set("f_sqft",1450);set("f_year",1968);set("f_lot",7200);
+    set("f_list",185000);set("f_cad",171400);set("f_rent",1750);
+    COMPS=DEMO_COMPS.map(c=>({...c}));
+  } else {
+    // Central McAllen, 78501 -- 1970s three-bed on a corner lot, estate sale,
+    // long DOM. The kind of house the Valley actually offers an investor.
+    $("f_market").value="mcallen";
+    set("f_addr","1806 Ash Ave");set("f_city","McAllen");set("f_zip","78501");
+    set("f_beds",3);set("f_baths",2);set("f_sqft",1380);set("f_year",1974);set("f_lot",8100);
+    set("f_list",165000);set("f_cad",152400);set("f_rent",1575);
+    COMPS=MCALLEN_COMPS.map(c=>({...c}));
+  }
+  $("f_state").value="TX";fillCounties();
+  const M=MARKETS[$("f_market").value];
+  const cs=$("f_county");if([...cs.options].some(o=>o.value===M.county))cs.value=M.county;
+  countyChanged();
+  set("f_offer",0); $("f_cond").value="medium"; $("f_arvadj").value=0;
+  arvManual=false;
+  applyMarket(false);
+  renderComps(); renderPhotos(); run();
+}
+
+/* ---------- live recompute ---------- */
+document.querySelectorAll("input.inp,select.inp").forEach(i=>{
+  if(i.id&&i.id.startsWith("f_")&&i.id!=="f_arv")i.addEventListener("input",()=>run());
+});
+["f_state","f_county","f_type","f_rehabfin"].forEach(id=>$(id)&&$(id).addEventListener("change",run));
+$("f_sqft").addEventListener("change",()=>{ if(confirm("Sq ft changed — reload the rehab scope with new per-sqft defaults? (Cancel keeps your edited line items.)")) loadScope(); else run(); });
+
+/* ---------- boot ---------- */
+fillCounties();
+loadDemo("mcallen");
+</script>
+</body>
+</html>
