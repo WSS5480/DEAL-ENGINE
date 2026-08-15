@@ -75,6 +75,15 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .deal:hover{border-color:var(--line2)}
 .deal.open{border-color:var(--acc);background:#fff8f1}
 .dhead{display:grid;grid-template-columns:34px 1fr auto;gap:11px;align-items:center}
+.dhead:has(.tw){grid-template-columns:52px 1fr auto;gap:10px}
+.tw{position:relative;width:52px;height:52px}
+.rk{position:absolute;left:0;bottom:0;min-width:17px;height:16px;padding:0 4px;
+ display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;font-weight:750;
+ font-style:normal;color:#fff;background:rgba(31,26,21,.72);border-radius:8px 0 7px 0;letter-spacing:-.02em}
+.deal.t1 .rk{background:var(--acc)}
+.dmain{min-width:0}
+.dmain .addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dmain .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rank{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);
  font-size:13px;font-weight:750;background:var(--bg2);border:1px solid var(--line2);color:var(--txt3)}
 .deal.t1 .rank{background:rgba(20,113,74,.10);border-color:rgba(20,113,74,.34);color:var(--good)}
@@ -128,6 +137,21 @@ details.acc .bd{padding:0 12px 12px}
 .cnt{white-space:nowrap}
 @media(max-width:470px){ .cnt{display:none} .brand small{font-size:10.5px} }
 footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* aerial */
+.aer{position:relative;overflow:hidden;border-radius:9px;background:var(--bg2);
+ border:1px solid var(--line);flex:none;max-width:100%}
+.aer img{position:absolute;width:256px;height:256px;border:0;display:block}
+.aer .pin{position:absolute;left:50%;top:50%;width:17px;height:17px;margin:-9px 0 0 -9px;
+ border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1.5px rgba(31,26,21,.55),inset 0 0 0 1.5px rgba(31,26,21,.35);
+ pointer-events:none}
+.aer.thumb{border-radius:8px}
+.aer.thumb .pin{width:11px;height:11px;margin:-6px 0 0 -6px;border-width:1.5px}
+.photo{margin-bottom:12px}
+.phrow{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
+.phbtn{font-size:12px;font-weight:700;color:var(--acc2);text-decoration:none;
+ border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--card)}
+.phcred{font-size:9.5px;color:var(--txt3);margin-left:auto;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -307,7 +331,8 @@ function analyse(r,o){
     spread:anchor-P,cut:anchor>0?(anchor-P)/anchor:0,profit:profit,
     margin:arv>0?profit/arv:0,cashIn:cashIn,rent:rent,cfMo:noi/12-mo,anchor:anchor,
     owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
-    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",link:r.link||"",mailcity:r.mailcity||""};
+    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",link:r.link||"",mailcity:r.mailcity||"",
+    lat:r.lat,lon:r.lon};
   p.absentee=r.absentee||"";
   p.score=score(p,o);
   p.flags=[];
@@ -338,6 +363,35 @@ function inBox(r){
   return true;
 }
 
+
+/* ---- aerial photography ----------------------------------------------------
+   Esri's World Imagery basemap. Public, no key, no quota, sub-metre over most
+   of Texas. It is a cached tile service, so instead of asking for one picture
+   we lay the handful of 256px tiles that cover the frame and slide them so the
+   parcel's centroid sits dead centre.                                        */
+var TILE="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/";
+function aerial(lat,lon,z,w,h,cls){
+  if(!isFinite(lat)||!isFinite(lon)) return "";
+  var n=Math.pow(2,z)*256;
+  var px=(lon+180)/360*n;
+  var s=Math.max(-0.9999,Math.min(0.9999,Math.sin(lat*Math.PI/180)));
+  var py=(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n;
+  var x0=Math.floor((px-w/2)/256), x1=Math.floor((px+w/2)/256);
+  var y0=Math.floor((py-h/2)/256), y1=Math.floor((py+h/2)/256);
+  var out='<div class="aer '+(cls||"")+'" style="width:'+w+'px;height:'+h+'px">';
+  for(var ty=y0;ty<=y1;ty++) for(var tx=x0;tx<=x1;tx++){
+    out+='<img loading="lazy" decoding="async" alt="" onerror="this.style.display=\'none\'" src="'+TILE+z+'/'+ty+'/'+tx+'" '+
+         'style="left:'+Math.round(w/2-px+tx*256)+'px;top:'+Math.round(h/2-py+ty*256)+'px">';
+  }
+  return out+'<i class="pin"></i></div>';
+}
+function streetView(lat,lon){
+  return "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+lat+","+lon;
+}
+function mapLink(lat,lon){
+  return "https://www.google.com/maps/search/?api=1&query="+lat+","+lon;
+}
+
 /* ---- render ---- */
 var LIST=[];
 function render(rows,label){
@@ -365,13 +419,21 @@ function render(rows,label){
     var d=document.createElement("div");
     d.className="deal"+(i===0&&p.score>=45?" t1":"");
     d.innerHTML=
-      '<div class="dhead"><div class="rank">'+(i+1)+'</div>'+
+      '<div class="dhead">'+
+      (p.lat ? '<div class="tw">'+aerial(p.lat,p.lon,18,52,52,"thumb")+'<i class="rk">'+(i+1)+'</i></div>'
+             : '<div class="rank">'+(i+1)+'</div>')+
       '<div class="dmain"><div class="addr">'+p.address+'</div>'+
-      '<div class="sub">'+(p.city?p.city+" ":"")+(p.zip||"")+' · '+Math.round(p.sqft).toLocaleString()+' sf'+(p.year?" · "+p.year:"")+'</div>'+
+      '<div class="sub">'+Math.round(p.sqft).toLocaleString()+' sf'+(p.year?" · "+p.year:"")+(p.zip?" · "+p.zip:"")+'</div>'+
       '<div class="bar"><i style="width:'+Math.max(2,p.score)+'%;background:var(--'+cls+')"></i></div></div>'+
       '<div class="dright"><div class="off" style="color:var(--'+cls+')">'+(p.offer>0?money(p.offer):"no deal")+'</div>'+
       '<div class="sc '+cls+'">'+Math.round(p.score)+' / 100</div></div></div>'+
       '<div class="body">'+
+        (p.lat?'<div class="photo">'+aerial(p.lat,p.lon,19,330,158)+
+          '<div class="phrow">'+
+            '<a class="phbtn" href="'+streetView(p.lat,p.lon)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
+            '<a class="phbtn" href="'+mapLink(p.lat,p.lon)+'" target="_blank" rel="noopener">Map \u2197</a>'+
+            '<span class="phcred">Imagery \u00a9 Esri, Maxar</span>'+
+          '</div></div>':'')+
         '<div class="kv">'+
         '<div><div class="k">ARV</div><div class="v">'+money(p.arv)+'</div></div>'+
         '<div><div class="k">Rehab</div><div class="v">'+money(p.rehab)+'</div></div>'+
@@ -490,6 +552,7 @@ var SRC={
    link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
    classes:"'A1','A2'",       /* A1 single family, A2 mobile home with land */
    order:"marketValue ASC",
+   centroid:true,
    /* City is NOT reliable in the situs string \u2014 about a quarter of rows read
       just ", TX". The taxing-unit list is exact, so filter on that instead. */
    cities:{MCALLEN:"CML",EDINBURG:"CEB",MISSION:"CMS",PHARR:"CPR",WESLACO:"CWL",
@@ -603,6 +666,9 @@ async function runLive(quiet){
         outFields:outF.length?outF.join(","):"*",returnGeometry:"false",
         resultOffset:String(offset),resultRecordCount:"1000",f:"json"};
       if(src.order) qp.orderByFields=src.order;
+      /* a centroid is far cheaper than the parcel polygon and it is all the
+         aerial view needs. outSR 4326 so it comes back as plain lat/lon. */
+      if(src.centroid){ qp.returnCentroid="true"; qp.outSR="4326"; }
       var p=new URLSearchParams(qp);
       var r=await getJSON(src.q+"?"+p);
       var fs=r.features||[]; if(!fs.length) break;
@@ -615,7 +681,9 @@ async function runLive(quiet){
         var homestead=/\bHS\b/i.test(ex);
         var out=!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase());
         var pid=F.pid?a[F.pid]:"";
+        var ct=ft.centroid||{};
         rows.push({
+          lon:isFinite(ct.x)?ct.x:null, lat:isFinite(ct.y)?ct.y:null,
           address:titleCase(sp.addr),city:titleCase(pcity),zip:F.mailzip&&!out?String(a[F.mailzip]||"").slice(0,5):"",
           sqft:nz(a[F.sqft]),year:nz(a[F.year]),cad:nz(a[F.cad]),
           owner:titleCase(a[F.owner]||""),
@@ -654,7 +722,7 @@ document.querySelectorAll(".inp").forEach(function(i){
   i.addEventListener("change",function(){
     if(LIST.length){ render(LIST.map(function(p){return {address:p.address,city:p.city,zip:p.zip,sqft:p.sqft,
       year:p.year,cad:p.cad,owner:p.owner,mail:p.mail,absentee:p.absentee,outoftown:p.outoftown,
-      exempt:p.exempt,pid:p.pid,link:p.link,mailcity:p.mailcity}}),"Re-ranked"); }
+      exempt:p.exempt,pid:p.pid,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon}}),"Re-ranked"); }
   });
 });
 $("mktTag").textContent="Hidalgo CAD \u2014 live";

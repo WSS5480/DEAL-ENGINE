@@ -68,6 +68,29 @@ Fields it uses:
 
 To wire up a different county, add an entry to the `SRC` object near the bottom of `index.html`. Counties that aren't hand-mapped fall back to automatic discovery through the ArcGIS Hub catalog, which works often enough to be worth trying.
 
+
+### Aerial photography
+
+Every parcel gets a picture. The county query asks for `returnCentroid=true&outSR=4326`,
+which returns one lat/lon point per parcel — far cheaper over the wire than the parcel
+polygon, and all the map needs.
+
+Those coordinates are rendered against **Esri World Imagery**, which is public, keyless
+and unmetered:
+
+```
+https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
+```
+
+It's a *cached* tile service, so there is no "give me a picture centred here" endpoint.
+The page computes the Web Mercator pixel position of the centroid, works out which 256px
+tiles cover the frame, and offsets them with CSS so the parcel lands dead centre. Thumbnails
+render at zoom 18, the opened card at zoom 19. Tiles are `loading="lazy"`, so scrolling a
+long list doesn't fetch anything you haven't looked at.
+
+Street View is a link rather than an embed — an embedded panorama needs a Google Maps API
+key and a credit card, and a link opens the Maps app on a phone anyway.
+
 ### What it will never touch
 
 Zillow, Redfin, Realtor.com, and the MLS. Their terms forbid scraping and they ban aggressively. Everything here is public county appraisal data, which is exactly what the county publishes it for. If you want listing-side data, buy it from a licensed API — RentCast has a free tier that's enough to start.
