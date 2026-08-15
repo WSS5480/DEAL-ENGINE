@@ -226,8 +226,10 @@ label.f.sm2 .inp{padding:7px 9px;font-size:13px}
   <h3>Where <span class="tag" id="mktTag"></span></h3>
   <div class="grid g3">
     <label class="f"><span>State</span><select class="inp" id="f_state"></select></label>
-    <label class="f"><span>County</span><input class="inp" id="f_county" value="Hidalgo" placeholder="Hidalgo" list="cadList"><datalist id="cadList"><option>Hidalgo</option><option>Cameron</option></datalist></label>
-    <label class="f"><span>City <em style="font-style:normal;opacity:.6">(optional)</em></span><input class="inp" id="f_city" value="McAllen" placeholder="McAllen" list="cityList"><datalist id="cityList"><option>McAllen</option><option>Edinburg</option><option>Mission</option><option>Pharr</option><option>Weslaco</option><option>San Juan</option><option>Donna</option><option>Mercedes</option><option>Alamo</option><option>Hidalgo</option><option>La Joya</option><option>Palmview</option><option>Alton</option><option>Brownsville</option><option>Harlingen</option><option>San Benito</option><option>South Padre Island</option><option>Port Isabel</option><option>Los Fresnos</option><option>La Feria</option><option>Rio Hondo</option><option>Laguna Vista</option><option>Rancho Viejo</option><option>Santa Rosa</option><option>Combes</option><option>Los Indios</option><option>Palm Valley</option><option>Primera</option></datalist></label>
+    <label class="f"><span>County</span><select class="inp" id="f_county"></select></label>
+    <label class="f"><span>City</span><select class="inp" id="f_city"></select></label>
+    <label class="f" id="otherWrap" style="display:none"><span>County name</span><input class="inp" id="f_countyOther" placeholder="Starr"></label>
+    <label class="f" id="otherCityWrap" style="display:none"><span>City name</span><input class="inp" id="f_cityOther" placeholder="Rio Grande City"></label>
   </div>
   <label class="f" style="margin-top:10px"><span>ZIP codes <em style="font-style:normal;opacity:.6">— pasted lists only</em></span>
     <input class="inp" id="f_zips" placeholder="78501, 78503, 78504"><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;font-size:11px;color:var(--txt3);margin-top:5px;line-height:1.45">County records carry no property ZIP — live searches filter by city instead.</span></label>
@@ -354,7 +356,7 @@ label.f.sm2 .inp{padding:7px 9px;font-size:13px}
 </div>
 
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-15 · 6 · Hidalgo + Cameron wired · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-15 · 7 · Hidalgo + Cameron wired · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -497,7 +499,7 @@ function reseed(p){
 /* ---- render ---- */
 var LIST=[];
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
-function render(rows,label){
+function render(rows,label,jump){
   var o=opts();
   var out=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
   out.sort(function(a,b){return b.score-a.score||b.spread-a.spread});
@@ -559,7 +561,7 @@ function render(rows,label){
     d.onclick=function(){d.classList.toggle("open")};
     res.appendChild(d);
   });
-  window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
+  if(jump) window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
 }
 function clearList(){
   LIST=[]; $("results").innerHTML=""; $("cnt").textContent="";
@@ -607,7 +609,7 @@ $("btnCsv").onclick=function(){
   var kept=rows.filter(inBox);
   $("csvStatus").className="status ok";
   $("csvStatus").textContent=rows.length+" rows read, "+kept.length+" fit the buy box.";
-  render(kept.length?kept:rows,"Pasted list");
+  render(kept.length?kept:rows,"Pasted list",true);
 };
 $("btnCsvDemo").onclick=function(){$("csvBox").value=DEMOCSV;};
 
@@ -639,7 +641,7 @@ var DEMOCSV="address,city,zip,sqft,year,cad,owner,mail,absentee\n"+
 "4015 Auburn Ave,McAllen,78504,1720,1996,241200,Vela G,2201 Kirby Houston,Y\n";
 $("btnDemo").onclick=function(){
   var rows=parseCSV(DEMOCSV), kept=rows.filter(inBox);
-  render(kept.length?kept:rows,"Demo set");
+  render(kept.length?kept:rows,"Demo set",true);
 };
 
 /* ---- live county lookup ----------------------------------------------------
@@ -773,7 +775,7 @@ async function findLayer(st,county){
 $("btnRun").onclick=async function(){ runLive(false) };
 
 async function runLive(quiet){
-  var st=$("f_state").value, county=$("f_county").value.trim(), city=$("f_city").value.trim();
+  var st=$("f_state").value, county=countyName(), city=cityName();
   if(!county){setStat("Type a county name first.","err");return false}
   $("btnRun").disabled=true;
   try{
@@ -888,7 +890,7 @@ async function runLive(quiet){
             " \u00b7 "+kept.length.toLocaleString()+" fit your buy box."+
             (rows.capped?" That is the "+(PAGES*1000).toLocaleString()+" cheapest that fit \u2014 tighten the buy box to see further up the market.":"")+
             (rows.loose?" No taxing-unit code on file for "+titleCase(city)+", so this matched on address text \u2014 it can miss parcels whose record omits the city.":""),"ok");
-    render(kept.length?kept:usable,(city?titleCase(city):county+" County")+" · live county records");
+    render(kept.length?kept:usable,(city?titleCase(city):county+" County")+" · live county records",true);
     return true;
   }catch(err){
     var m=String(err.message||err);
@@ -1032,8 +1034,7 @@ $("ncSave").onclick=function(){
   if(!src.f.addr||!src.f.sqft){ ncStat("Address and living sq ft are required.","err"); return }
   var c=customCounties(); c[key]=src; saveCounties(c); SRC[key]=src;
   drawCountyList();
-  var opt=document.createElement("option"); opt.textContent=$("nc_county").value.trim();
-  $("cadList").appendChild(opt);
+  fillCounties();
   ncStat("Saved. Put <b>"+$("nc_county").value.trim()+"</b> in the County box and hit Find deals.","ok");
 };
 
@@ -1056,6 +1057,48 @@ $("ncSave").onclick=function(){
 })();
 mergeCounties();
 
+/* ---- the two pickers ------------------------------------------------------
+   Both are built from SRC, so a county you add yourself appears in the list the
+   moment it is saved, and its cities come with it.                           */
+function niceCounty(k){
+  var n=(k.split("|")[1]||"");
+  return n.charAt(0)+n.slice(1).toLowerCase();
+}
+function countyName(){
+  var v=$("f_county").value;
+  return v==="__other__" ? $("f_countyOther").value.trim() : niceCounty(v);
+}
+function cityName(){
+  var v=$("f_city").value;
+  return v==="__other__" ? $("f_cityOther").value.trim() : v;
+}
+function fillCounties(){
+  var sel=$("f_county"), keep=sel.value, keys=Object.keys(SRC).sort();
+  sel.innerHTML = keys.map(function(k){
+      return '<option value="'+k+'">'+niceCounty(k)+' County, '+k.split("|")[0]+'</option>';
+    }).join("") + '<option value="__other__">Another county…</option>';
+  sel.value = (keep && (keep==="__other__"||SRC[keep])) ? keep : (keys[0]||"__other__");
+  fillCities();
+}
+function fillCities(){
+  var k=$("f_county").value, src=SRC[k], sel=$("f_city"), keep=sel.value;
+  $("otherWrap").style.display = (k==="__other__") ? "block" : "none";
+  var names=(src&&src.cities)?Object.keys(src.cities).sort():[];
+  sel.innerHTML='<option value="">Whole county</option>'+
+    names.map(function(n){var t=titleCase(n);return '<option value="'+t+'">'+t+'</option>'}).join("")+
+    '<option value="__other__">Another city…</option>';
+  if(keep && sel.querySelector('option[value="'+keep.replace(/"/g,'')+'"]')) sel.value=keep; else sel.value="";
+  $("otherCityWrap").style.display = sel.value==="__other__" ? "block" : "none";
+  $("mktTag").textContent = src ? (src.label||niceCounty(k)) : "type the county below";
+}
+$("f_county").onchange=fillCities;
+$("f_city").onchange=function(){
+  $("otherCityWrap").style.display = $("f_city").value==="__other__" ? "block" : "none";
+};
+fillCounties();
+if(SRC["TX|HIDALGO"]){ $("f_county").value="TX|HIDALGO"; fillCities(); $("f_city").value="McAllen"; }
+
+
 /* a build stamp, and a way out of a stale cache without deleting the app */
 $("bustCache").onclick=async function(e){
   e.preventDefault();
@@ -1073,18 +1116,21 @@ $("bustCache").onclick=async function(e){
 };
 
 /* recompute on any input change if a list is already up */
+/* the where-fields change what you search, not how it scores — they must not
+   re-rank a list that is already on screen */
+var NORERANK={f_county:1,f_city:1,f_countyOther:1,f_cityOther:1,f_zips:1,f_state:1,
+  f_layer:1,sv_key:1,nc_state:1,nc_county:1,nc_url:1,nc_cls:1,nc_label:1,csvBox:1};
 document.querySelectorAll(".inp").forEach(function(i){
+  if(NORERANK[i.id]||/^ncf_/.test(i.id)) return;
   i.addEventListener("change",function(){
     if(LIST.length) render(LIST.map(reseed),"Re-ranked");
   });
 });
-$("mktTag").textContent="Hidalgo + Cameron \u2014 live";
-/* Load real parcels on arrival. If the county server is unreachable, fall back
-   to the demo set rather than showing an empty page. */
-(async function(){
-  var ok=await runLive(true);
-  if(!ok){ try{ $("btnDemo").click(); }catch(e){} }
-})();
+/* Nothing runs on arrival. Set the county, the city and your numbers, then ask. */
+$("results").innerHTML='<div class="card"><div class="empty"><b>Pick a county and set your numbers</b>'+
+  'Then hit <b style="display:inline;color:var(--acc2)">Find deals</b>. Nothing is queried until you do.'+
+  '<br><br>No county data handy? The <b style="display:inline">Demo</b> tab has 24 McAllen parcels '+
+  'so you can see how the ranking behaves.</div></div>';
 </script>
 
 <script>
