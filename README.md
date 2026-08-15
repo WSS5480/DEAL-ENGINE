@@ -91,9 +91,91 @@ long list doesn't fetch anything you haven't looked at.
 Street View is a link rather than an embed — an embedded panorama needs a Google Maps API
 key and a credit card, and a link opens the Maps app on a phone anyway.
 
+
+### Adding a county yourself
+
+Texas has 254 counties and no statewide source with living square footage, so counties
+get wired in one at a time. Two are hand-verified — **Hidalgo** and **Cameron** — and the
+app has an **Add a county** panel for the rest: paste a parcel layer's `/query` URL, it
+reads the field list, guesses which column is which, you correct anything it got wrong,
+test five rows, save. Stored on your phone, not on a server.
+
+The two columns it can't work without are **address** and **living square footage**.
+Everything else degrades gracefully — no exemptions column just means absentee owners
+stop sorting to the top.
+
+Two traps that a guessed mapping will walk straight into:
+
+- **Class codes are not consistent between counties.** Hidalgo codes single-family `A1`.
+  Cameron codes it `A` — asking Cameron for `A1` returns exactly one record countywide.
+  Not an error, not an empty result. One house.
+- **Situs city text is unreliable.** Cameron's has 200+ misspellings (`BROWNSVIILLE`,
+  `SOYTH PADRE ISLAND`). Both hand-mapped counties filter on the taxing-unit code instead,
+  which is exact. A county you add yourself falls back to text matching and says so in the
+  status line.
+
+### Street-level photos
+
+Off unless you supply a key. Paste a **Google Street View Static API** key into the
+*Street photos* panel and every opened property shows a photograph of the house above the
+aerial.
+
+```
+https://maps.googleapis.com/maps/api/streetview?size=640x336&location=LAT,LON
+  &fov=78&pitch=8&radius=70&source=outdoor&return_error_code=true&key=KEY
+```
+
+No `heading` is passed on purpose — with none given, Google aims the camera from the
+nearest panorama toward the coordinates you asked for, which is the house.
+`return_error_code=true` turns a missing panorama into a 404 rather than a grey placeholder,
+so the frame removes itself and the aerial stands alone.
+
+**10,000 image loads a month are free** (metadata calls are unlimited and free). Google
+still requires a payment method on the Cloud account. Restrict the key two ways — HTTP
+referrer to your own domain, and API restriction to Street View Static only — because the
+key is visible in the page. Attribution is shown in the corner of the frame, and the
+images are hotlinked live rather than re-hosted, which is what Google's terms require.
+
+Zillow, Redfin and Realtor photos are MLS-licensed and off limits. This is the legitimate
+way to see the house.
+
 ### What it will never touch
 
 Zillow, Redfin, Realtor.com, and the MLS. Their terms forbid scraping and they ban aggressively. Everything here is public county appraisal data, which is exactly what the county publishes it for. If you want listing-side data, buy it from a licensed API — RentCast has a free tier that's enough to start.
+
+
+---
+
+## Install it as an app
+
+It's a PWA, so it goes on a home screen like any other app — own icon, full
+screen, no address bar, opens without a signal. No App Store, no review queue,
+no $99 developer account, no Xcode.
+
+**iPhone / iPad** — open the site in Safari, tap **Share**, then **Add to Home
+Screen**. (It has to be Safari. Chrome on iOS can't install a PWA.) The site
+shows a reminder bar the first time; dismiss it and it stays dismissed.
+
+**Android** — Chrome offers an **Install** button on the same bar, or use menu
+→ *Install app*.
+
+**Desktop** — Chrome and Edge show an install icon in the address bar.
+
+What it does offline: the pages, icons and any aerial tiles you've already
+looked at are cached, so the app opens and the calculators work with no signal.
+Live county lookups obviously need a connection — when there isn't one the app
+says so and loads the demo set rather than showing you an empty screen.
+
+The service worker deliberately caches three ways, because the three kinds of
+request want opposite things:
+
+| Request | Strategy | Why |
+|---|---|---|
+| The app itself | Network first, cache as fallback | A new deploy has to show up |
+| County records | Network only, never cached | A stale market value is worse than none |
+| Aerial tiles | Cache first, 400-tile cap | Imagery from last year is this year's imagery |
+
+Bumping `VERSION` in `sw.js` retires every old cache on the next visit.
 
 ---
 

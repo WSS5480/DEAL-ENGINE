@@ -184,6 +184,20 @@ header .cnt{color:rgba(238,242,249,.62)}
 #a2hs button{background:var(--acc);color:#16203a}
 .rk{background:rgba(26,36,56,.78)}
 .deal.t1 .rk{background:var(--acc);color:#16203a}
+
+.hint{font-size:12px;color:var(--txt3);margin:0 0 9px;line-height:1.5}
+.hint b{color:var(--txt2)}
+.sv{position:relative;width:100%;overflow:hidden;border-radius:9px;border:1px solid var(--line);
+ background:var(--bg2);margin-bottom:8px}
+.sv img{width:100%;height:100%;object-fit:cover;display:block}
+.svc{position:absolute;left:7px;bottom:6px;font-size:9.5px;font-weight:700;color:#fff;
+ text-shadow:0 1px 3px rgba(0,0,0,.85);letter-spacing:.02em}
+.cadrow{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:7px 9px;
+ background:var(--bg2);border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
+.cadrow b{font-weight:700}
+.cadrow .x{margin-left:auto;background:none;border:0;color:var(--bad);font-size:16px;padding:0 4px}
+label.f.sm2>span{font-size:9.5px}
+label.f.sm2 .inp{padding:7px 9px;font-size:13px}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -273,6 +287,46 @@ header .cnt{color:rgba(238,242,249,.62)}
       <input class="inp" id="f_layer" placeholder="https://…/FeatureServer/0/query">
       <p style="font-size:12px;color:var(--txt3);margin:8px 0 0;line-height:1.5">
         Find it on your county's GIS open-data portal. Paste the layer's <b>/query</b> URL. Stored only in this tab.</p>
+    </div></details>
+
+    <details class="acc" id="cadBox"><summary>Add a county</summary><div class="bd">
+      <p class="hint">Paste a county parcel layer's <b>/query</b> URL. It reads the field
+        list, guesses which column is which, and you correct anything it got wrong.
+        Saved on this phone.</p>
+      <div class="grid g2" style="margin-bottom:9px">
+        <label class="f"><span>State</span><input class="inp" id="nc_state" value="TX" maxlength="2"></label>
+        <label class="f"><span>County</span><input class="inp" id="nc_county" placeholder="Starr"></label>
+      </div>
+      <input class="inp" id="nc_url" placeholder="https://…/FeatureServer/0/query">
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" id="ncRead">Read the fields</button>
+        <button class="btn ghost sm" id="ncTest" disabled>Test 5 rows</button>
+        <button class="btn ghost sm" id="ncSave" disabled>Save county</button>
+      </div>
+      <div class="status" id="ncStatus"></div>
+      <div id="ncMap" style="display:none">
+        <div class="grid g2" id="ncFields"></div>
+        <div class="grid g2" style="margin-top:9px">
+          <label class="f"><span>Single-family code</span><input class="inp" id="nc_cls" placeholder="A1  or  A"></label>
+          <label class="f"><span>Label</span><input class="inp" id="nc_label" placeholder="Starr CAD"></label>
+        </div>
+        <p class="hint">Leave the class code blank if the layer has no class column. Anything
+          set to <b>—</b> is simply not used.</p>
+      </div>
+      <div id="ncList" style="margin-top:11px"></div>
+    </div></details>
+
+    <details class="acc" id="svBox"><summary>Street photos</summary><div class="bd">
+      <p class="hint">Off by default. Paste a Google Street View Static API key and every
+        property gets a photo of the house itself, next to the aerial.
+        <b>10,000 views a month are free</b> — Google still wants a card on the account.
+        Restrict the key to your site and to that one API.</p>
+      <input class="inp" id="sv_key" placeholder="AIza…">
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" id="svSave">Save key</button>
+        <button class="btn ghost sm" id="svClear">Remove</button>
+      </div>
+      <div class="status" id="svStatus"></div>
     </div></details>
   </div>
 
@@ -431,6 +485,12 @@ function mapLink(lat,lon){
   return "https://www.google.com/maps/search/?api=1&query="+lat+","+lon;
 }
 
+function reseed(p){
+  return {address:p.address,city:p.city,zip:p.zip,sqft:p.sqft,year:p.year,cad:p.cad,
+    owner:p.owner,mail:p.mail,absentee:p.absentee,outoftown:p.outoftown,exempt:p.exempt,
+    pid:p.pid,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon};
+}
+
 /* ---- render ---- */
 var LIST=[];
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
@@ -468,7 +528,7 @@ function render(rows,label){
       '<div class="dright"><div class="off" style="color:var(--'+cls+')">'+(p.offer>0?money(p.offer):"no deal")+'</div>'+
       '<div class="sc '+cls+'">'+Math.round(p.score)+' / 100</div></div></div>'+
       '<div class="body">'+
-        (p.lat?'<div class="photo">'+aerial(p.lat,p.lon,19,330,158)+
+        (p.lat?'<div class="photo">'+streetPhoto(p.lat,p.lon,330,168)+aerial(p.lat,p.lon,19,330,158)+
           '<div class="phrow">'+
             '<a class="phbtn" href="'+streetView(p.lat,p.lon)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
             '<a class="phbtn" href="'+mapLink(p.lat,p.lon)+'" target="_blank" rel="noopener">Map \u2197</a>'+
@@ -838,12 +898,165 @@ async function runLive(quiet){
   } finally { $("btnRun").disabled=false; }
 }
 
+
+/* ---- street-level photos ---------------------------------------------------
+   Google's Street View Static API. Ten thousand image loads a month are free,
+   and with no heading given Google aims the camera from the nearest pano at the
+   coordinates you passed, which is the house. return_error_code turns a missing
+   pano into a 404 instead of a grey box, so onerror can just remove the frame. */
+function svKey(){ try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" } }
+function streetPhoto(lat,lon,w,h){
+  var k=svKey();
+  if(!k||!isFinite(lat)||!isFinite(lon)) return "";
+  var u="https://maps.googleapis.com/maps/api/streetview?size="+Math.min(640,Math.round(w*2))+
+        "x"+Math.min(640,Math.round(h*2))+"&location="+lat+","+lon+
+        "&fov=78&pitch=8&radius=70&source=outdoor&return_error_code=true&key="+encodeURIComponent(k);
+  return '<div class="sv" style="height:'+h+'px">'+
+         '<img loading="lazy" decoding="async" alt="Street view of the property" '+
+         'onerror="this.parentNode.style.display=\'none\'" src="'+u+'">'+
+         '<span class="svc">Google</span></div>';
+}
+
+/* ---- counties you add yourself --------------------------------------------
+   Same shape as the hand-mapped entries in SRC, just kept on the phone.       */
+var MAPKEYS=[["addr","Address"],["owner","Owner"],["mail","Mailing address"],
+  ["mailcity","Mailing city"],["mailstate","Mailing state"],["mailzip","Mailing ZIP"],
+  ["sqft","Living sq ft"],["year","Year built"],["cad","Market value"],
+  ["cls","Class code"],["exempt","Exemptions"],["pid","Parcel ID"],
+  ["city","Property city"],["zip","Property ZIP"]];
+
+function customCounties(){
+  try{ return JSON.parse(localStorage.getItem("de_counties")||"{}") }catch(e){ return {} }
+}
+function saveCounties(o){ try{ localStorage.setItem("de_counties",JSON.stringify(o)) }catch(e){} }
+function mergeCounties(){
+  var c=customCounties();
+  for(var k in c){ SRC[k]=c[k]; }
+  drawCountyList();
+}
+function drawCountyList(){
+  var c=customCounties(), box=$("ncList"), html="";
+  for(var k in c){
+    html+='<div class="cadrow"><b>'+k.replace("|"," · ")+'</b>'+
+          '<span style="color:var(--txt3)">'+(c[k].label||"")+'</span>'+
+          '<button class="x" data-k="'+k+'" title="Remove">&times;</button></div>';
+  }
+  box.innerHTML = html || '<p class="hint" style="margin:0">No counties added yet.</p>';
+  [].forEach.call(box.querySelectorAll(".x"),function(b){
+    b.onclick=function(){
+      var c2=customCounties(); delete c2[b.dataset.k]; saveCounties(c2);
+      delete SRC[b.dataset.k]; drawCountyList();
+    };
+  });
+}
+
+var NC={fields:[],guess:{}};
+function ncStat(m,c){ var e=$("ncStatus"); e.className="status"+(c?" "+c:""); e.innerHTML=m; }
+function ncKey(){ return ($("nc_state").value.trim().toUpperCase()||"TX")+"|"+
+                         $("nc_county").value.trim().toUpperCase(); }
+function ncBuild(){
+  var f={};
+  MAPKEYS.forEach(function(p){
+    var el=$("ncf_"+p[0]); if(el&&el.value) f[p[0]]=el.value;
+  });
+  var cls=$("nc_cls").value.trim();
+  return {q:$("nc_url").value.trim(), label:$("nc_label").value.trim()||ncKey().split("|")[1]+" CAD",
+          f:f, centroid:true, custom:true,
+          classes: (cls&&f.cls) ? cls.split(",").map(function(v){return "'"+v.trim()+"'"}).join(",") : null,
+          order: f.cad ? f.cad+" ASC" : null};
+}
+
+$("ncRead").onclick=async function(){
+  var u=$("nc_url").value.trim();
+  if(!/\/query\/?$/.test(u)){ ncStat("That URL needs to end in <b>/query</b>.","err"); return }
+  if(!$("nc_county").value.trim()){ ncStat("Name the county first.","err"); return }
+  ncStat('<span class="spin"></span>Reading the layer…');
+  try{
+    var meta=await getJSON(u.replace(/\/query\/?$/,"")+"?f=json");
+    var names=(meta.fields||[]).map(function(x){return x.name});
+    if(!names.length){ ncStat("No field list came back. Check the URL.","err"); return }
+    NC.fields=names;
+    var guessed=0, html="";
+    MAPKEYS.forEach(function(p){
+      var re=FIELD[p[0]], g=re?pickField(names,re):null;
+      if(!g && p[0]==="mailcity")  g=pickField(names,/mail.*city|addr.*city|own.*city/i);
+      if(!g && p[0]==="mailstate") g=pickField(names,/mail.*st(ate)?$|addr.*state|own.*state/i);
+      if(!g && p[0]==="mailzip")   g=pickField(names,/mail.*zip|addr.*zip|own.*zip/i);
+      if(!g && p[0]==="city") g=pickField(names,/situs.*city|prop.*city|^sitcity$|^city$/i);
+      if(!g && p[0]==="zip")  g=pickField(names,/situs.*zip|prop.*zip|^sitzip$|^zip$/i);
+      if(!g && p[0]==="cls")  g=pickField(names,/state_?cd|class|land_?use|proptype/i);
+      if(!g && p[0]==="exempt") g=pickField(names,/exempt|^exms$/i);
+      if(!g && p[0]==="pid")  g=pickField(names,/prop_?id|^pid$|parcel_?id|geo_?id/i);
+      if(g) guessed++;
+      html+='<label class="f sm2"><span>'+p[1]+'</span><select class="inp" id="ncf_'+p[0]+'">'+
+            '<option value="">—</option>'+
+            names.map(function(n){return '<option'+(n===g?" selected":"")+'>'+n+'</option>'}).join("")+
+            '</select></label>';
+    });
+    $("ncFields").innerHTML=html;
+    $("ncMap").style.display="block";
+    $("ncTest").disabled=false; $("ncSave").disabled=false;
+    if(!$("nc_label").value) $("nc_label").value=$("nc_county").value.trim()+" CAD";
+    ncStat(names.length+" fields found, "+guessed+" mapped automatically. Check them, then test.","ok");
+  }catch(e){
+    ncStat("Couldn’t read that layer: "+(e.message||e)+
+           ". If it’s a browser/CORS refusal, the county’s server won’t talk to phones at all.","err");
+  }
+};
+
+$("ncTest").onclick=async function(){
+  var src=ncBuild();
+  if(!src.f.addr||!src.f.sqft){ ncStat("Address and living sq ft are the two it can’t work without.","err"); return }
+  ncStat('<span class="spin"></span>Pulling five rows…');
+  try{
+    var outF=[]; for(var k in src.f){ if(src.f[k]) outF.push(src.f[k]); }
+    var qp={where:"1=1",outFields:outF.join(","),returnGeometry:"false",
+            resultRecordCount:"5",f:"json",returnCentroid:"true",outSR:"4326"};
+    var r=await getJSON(src.q+"?"+new URLSearchParams(qp));
+    var fs=r.features||[];
+    if(!fs.length){ ncStat("The layer answered but returned no rows.","err"); return }
+    var a=fs[0].attributes||{}, c=fs[0].centroid||{};
+    ncStat("<b>"+(a[src.f.addr]||"—")+"</b> · "+(nz(a[src.f.sqft])||"?")+" sq ft"+
+           (src.f.year?" · "+(a[src.f.year]||"?"):"")+
+           (src.f.cad?" · "+money(nz(a[src.f.cad])):"")+
+           (src.f.owner?"<br>Owner: "+(a[src.f.owner]||"—"):"")+
+           (isFinite(c.x)?"<br>Centroid OK — aerials will work.":"<br>No centroid — no photos for this county."),"ok");
+  }catch(e){ ncStat("Test query failed: "+(e.message||e),"err"); }
+};
+
+$("ncSave").onclick=function(){
+  var key=ncKey(), src=ncBuild();
+  if(!src.f.addr||!src.f.sqft){ ncStat("Address and living sq ft are required.","err"); return }
+  var c=customCounties(); c[key]=src; saveCounties(c); SRC[key]=src;
+  drawCountyList();
+  var opt=document.createElement("option"); opt.textContent=$("nc_county").value.trim();
+  $("cadList").appendChild(opt);
+  ncStat("Saved. Put <b>"+$("nc_county").value.trim()+"</b> in the County box and hit Find deals.","ok");
+};
+
+(function(){
+  var k=svKey(); if(k) $("sv_key").value=k;
+  $("svStatus").textContent = k ? "Key saved. Street photos are on." : "";
+  $("svSave").onclick=function(){
+    var v=$("sv_key").value.trim();
+    try{ localStorage.setItem("de_svkey",v) }catch(e){}
+    $("svStatus").className="status ok";
+    $("svStatus").textContent = v ? "Saved. Open any property to see it." : "Cleared.";
+    if(LIST.length) render(LIST.map(reseed),"Re-ranked");
+  };
+  $("svClear").onclick=function(){
+    try{ localStorage.removeItem("de_svkey") }catch(e){}
+    $("sv_key").value=""; $("svStatus").className="status";
+    $("svStatus").textContent="Removed.";
+    if(LIST.length) render(LIST.map(reseed),"Re-ranked");
+  };
+})();
+mergeCounties();
+
 /* recompute on any input change if a list is already up */
 document.querySelectorAll(".inp").forEach(function(i){
   i.addEventListener("change",function(){
-    if(LIST.length){ render(LIST.map(function(p){return {address:p.address,city:p.city,zip:p.zip,sqft:p.sqft,
-      year:p.year,cad:p.cad,owner:p.owner,mail:p.mail,absentee:p.absentee,outoftown:p.outoftown,
-      exempt:p.exempt,pid:p.pid,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon}}),"Re-ranked"); }
+    if(LIST.length) render(LIST.map(reseed),"Re-ranked");
   });
 });
 $("mktTag").textContent="Hidalgo + Cameron \u2014 live";
