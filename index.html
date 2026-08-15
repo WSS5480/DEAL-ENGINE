@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f6f8fb">
+<meta name="theme-color" content="#222f4e">
 <title>Deal Finder — rank a whole market</title>
 <style>
 :root{--bg:#f6f8fb;--bg2:#eceff6;--card:#ffffff;--line:#dfe4ee;--line2:#c5cede;
@@ -210,8 +210,8 @@ header .cnt{color:rgba(238,242,249,.62)}
   <h3>Where <span class="tag" id="mktTag"></span></h3>
   <div class="grid g3">
     <label class="f"><span>State</span><select class="inp" id="f_state"></select></label>
-    <label class="f"><span>County</span><input class="inp" id="f_county" value="Hidalgo" placeholder="Hidalgo"></label>
-    <label class="f"><span>City <em style="font-style:normal;opacity:.6">(optional)</em></span><input class="inp" id="f_city" value="McAllen" placeholder="McAllen" list="cityList"><datalist id="cityList"><option>McAllen</option><option>Edinburg</option><option>Mission</option><option>Pharr</option><option>Weslaco</option><option>San Juan</option><option>Donna</option><option>Mercedes</option><option>Alamo</option><option>Hidalgo</option><option>La Joya</option><option>Palmview</option><option>Alton</option></datalist></label>
+    <label class="f"><span>County</span><input class="inp" id="f_county" value="Hidalgo" placeholder="Hidalgo" list="cadList"><datalist id="cadList"><option>Hidalgo</option><option>Cameron</option></datalist></label>
+    <label class="f"><span>City <em style="font-style:normal;opacity:.6">(optional)</em></span><input class="inp" id="f_city" value="McAllen" placeholder="McAllen" list="cityList"><datalist id="cityList"><option>McAllen</option><option>Edinburg</option><option>Mission</option><option>Pharr</option><option>Weslaco</option><option>San Juan</option><option>Donna</option><option>Mercedes</option><option>Alamo</option><option>Hidalgo</option><option>La Joya</option><option>Palmview</option><option>Alton</option><option>Brownsville</option><option>Harlingen</option><option>San Benito</option><option>South Padre Island</option><option>Port Isabel</option><option>Los Fresnos</option><option>La Feria</option><option>Rio Hondo</option><option>Laguna Vista</option><option>Rancho Viejo</option><option>Santa Rosa</option><option>Combes</option><option>Los Indios</option><option>Palm Valley</option><option>Primera</option></datalist></label>
   </div>
   <label class="f" style="margin-top:10px"><span>ZIP codes <em style="font-style:normal;opacity:.6">— pasted lists only</em></span>
     <input class="inp" id="f_zips" placeholder="78501, 78503, 78504"><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;font-size:11px;color:var(--txt3);margin-top:5px;line-height:1.45">County records carry no property ZIP — live searches filter by city instead.</span></label>
@@ -263,7 +263,7 @@ header .cnt{color:rgba(238,242,249,.62)}
 
   <div id="src-live" class="sb" style="margin-top:12px">
     <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px;line-height:1.55">
-      Reads the Hidalgo County Appraisal District 2026 certified roll live — 331,344 parcels, straight from your phone. No install, no key. County records only, never Zillow or the MLS.</p>
+      Reads the county appraisal roll live, straight from your phone. Hidalgo (331,344 parcels) and Cameron (187,707) are wired up; other counties get an automatic lookup that works some of the time. County records only, never Zillow or the MLS.</p>
     <div class="row">
       <button class="btn" id="btnRun">🔎 Find deals</button>
       <button class="btn ghost sm" id="btnLayer">Set layer manually</button>
@@ -433,6 +433,7 @@ function mapLink(lat,lon){
 
 /* ---- render ---- */
 var LIST=[];
+var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
 function render(rows,label){
   var o=opts();
   var out=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
@@ -496,6 +497,10 @@ function render(rows,label){
     res.appendChild(d);
   });
   window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
+}
+function clearList(){
+  LIST=[]; $("results").innerHTML=""; $("cnt").textContent="";
+  $("footT").textContent="No list"; $("footM").textContent="\u2014";
 }
 function whyText(p){
   var s=[];
@@ -581,6 +586,24 @@ $("btnDemo").onclick=function(){
    built, market value, class code and exemptions all populated.
    Nothing here touches Zillow, Redfin or the MLS. County records only.        */
 
+var CAMERON_CITIES={BROWNSVILLE:"CBR",HARLINGEN:"CHG","SAN BENITO":"CSB","LA FERIA":"CLA",
+  "LOS FRESNOS":"CLO","SOUTH PADRE ISLAND":"CSP","RIO HONDO":"CRH","PORT ISABEL":"CPI",
+  BAYVIEW:"CBV",COMBES:"CCB","INDIAN LAKE":"CIL","LOS INDIOS":"CLI","LAGUNA VISTA":"CLV",
+  PRIMERA:"CPR2","PALM VALLEY":"CPV","RANCHO VIEJO":"CRV","SANTA ROSA":"CSR"};
+
+/* Cameron publishes the same table twice under different capitalisation.
+   One shape, two field maps, so they cannot drift apart. */
+function cameronFields(upper){
+  var n=function(a,b){return upper?b:a};
+  return {addr:n("situsdispl","situsDispl"),
+          addrParts:[n("situsno","situsNo"),n("sitpfx","sitPfx"),n("sitstr","sitStr"),n("sitsfx","sitSfx")],
+          city:n("sitcity","sitCity"), zip:n("sitzip","sitZip"),
+          owner:"owner", mail:"addr1", mailcity:n("addrcity","addrCity"),
+          mailstate:n("addrstate","addrState"), mailzip:n("addrzip","addrZip"),
+          sqft:n("lvgarea","lvgArea"), year:n("yrbuilt","yrBuilt"), cad:"market",
+          cls:n("statecd","stateCd"), exempt:"exms", pid:n("prop_id","PROP_ID"), unit:"city"};
+}
+
 var SRC={
  "TX|HIDALGO":{
    q:"https://services9.arcgis.com/dwMDP55HTfoj4n1c/arcgis/rest/services/HCAD_PARCELS_2026/FeatureServer/1/query",
@@ -589,14 +612,33 @@ var SRC={
       mailzip:"addrZip",sqft:"imprvMainArea",year:"imprvActualYearBuilt",cad:"marketValue",
       cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",unit:"taxingUnits"},
    link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
-   classes:"'A1','A2'",       /* A1 single family, A2 mobile home with land */
+   classes:"'A1','A2'",
    order:"marketValue ASC",
    centroid:true,
-   /* City is NOT reliable in the situs string \u2014 about a quarter of rows read
-      just ", TX". The taxing-unit list is exact, so filter on that instead. */
+   /* City is not reliable inside the situs string here \u2014 about a quarter of
+      rows read just ", TX". The taxing-unit list is exact, so filter on that. */
    cities:{MCALLEN:"CML",EDINBURG:"CEB",MISSION:"CMS",PHARR:"CPR",WESLACO:"CWL",
      "SAN JUAN":"CSJ",DONNA:"CDN",MERCEDES:"CMC",ALAMO:"CAO",HIDALGO:"CHD",
      "LA JOYA":"CLJ",PALMVIEW:"CPM",ALTON:"CAN"}
+ },
+
+ "TX|CAMERON":{
+   /* Brownsville GIS hosts the freshest countywide copy \u2014 2026 roll, 187,707
+      parcels. If that city server is down or won't answer a browser, the Esri
+      mirror below serves the 2025 roll instead. */
+   q:"https://cobgis.brownsvilletx.gov/arcgis/rest/services/Hosted/CCAD_Parcels_09082025/FeatureServer/0/query",
+   label:"Cameron CAD 2026 roll",
+   f:cameronFields(false),
+   classes:"'A'",   /* Cameron codes single family 'A'. Asking for 'A1' returns one row. */
+   order:"market ASC",
+   centroid:true,
+   cities:CAMERON_CITIES,
+   alt:{
+     q:"https://services2.arcgis.com/6oaLMZEZlktbQpyi/arcgis/rest/services/CCAD_Parcels_View/FeatureServer/0/query",
+     label:"Cameron CAD 2025 roll (Esri mirror)",
+     f:cameronFields(true), classes:"'A'", order:"market ASC", centroid:true,
+     cities:CAMERON_CITIES
+   }
  }
 };
 
@@ -684,69 +726,105 @@ async function runLive(quiet){
       if(!F.addr){setStat("That layer has no address field. First fields: "+names.slice(0,8).join(", "),"err");return false}
     }
 
-    /* ---- build the where clause from the buy box ---- */
-    var w=[];
-    if(F.sqft) w.push(F.sqft+" BETWEEN "+nz($("f_sqmin").value)+" AND "+nz($("f_sqmax").value));
-    if(F.year) w.push(F.year+" BETWEEN "+nz($("f_yrmin").value)+" AND "+nz($("f_yrmax").value));
-    if(F.cad)  w.push(F.cad+" BETWEEN 15000 AND "+Math.round(nz($("f_arvmax").value)));
-    if(src.classes&&F.cls) w.push(F.cls+" IN ("+src.classes+")");
-    var code=null;
-    if(city&&src.cities) code=src.cities[city.toUpperCase().trim()];
-    if(code&&F.unit) w.push(F.unit+" LIKE '%"+code+"%'");
-    else if(city&&F.city) w.push("UPPER("+F.city+") LIKE '%"+esc(city.toUpperCase())+"%'");
-    else if(city&&F.addr) w.push("UPPER("+F.addr+") LIKE '%"+esc(city.toUpperCase())+"%'");
+    /* ---- one pull, from one endpoint ---- */
+    async function pull(source){
+      var G=source.f||F, out=[];
+      var w=[];
+      if(G.sqft) w.push(G.sqft+" BETWEEN "+nz($("f_sqmin").value)+" AND "+nz($("f_sqmax").value));
+      if(G.year) w.push(G.year+" BETWEEN "+nz($("f_yrmin").value)+" AND "+nz($("f_yrmax").value));
+      if(G.cad)  w.push(G.cad+" BETWEEN 15000 AND "+Math.round(nz($("f_arvmax").value)));
+      if(source.classes&&G.cls) w.push(G.cls+" IN ("+source.classes+")");
+      var code=null;
+      if(city&&source.cities) code=source.cities[city.toUpperCase().trim()];
+      if(code&&G.unit) w.push(G.unit+" LIKE '%"+code+"%'");
+      else if(city&&G.city) w.push("UPPER("+G.city+") LIKE '%"+esc(city.toUpperCase())+"%'");
+      else if(city&&G.addr) w.push("UPPER("+G.addr+") LIKE '%"+esc(city.toUpperCase())+"%'");
+      /* no code on file: fall back to matching the address text, but remember
+         that we did, because that match is lossy */
+      var loose=!!(city&&source.cities&&!code);
 
-    var outF=[];for(var kk in F){if(F[kk])outF.push(F[kk])}
-    setStat('<span class="spin"></span>Querying '+(src.label||county)+'…');
+      var outF=[];
+      for(var kk in G){
+        var v=G[kk];
+        if(!v) continue;
+        if(Object.prototype.toString.call(v)==="[object Array]") outF=outF.concat(v);
+        else outF.push(v);
+      }
+      setStat('<span class="spin"></span>Querying '+(source.label||county)+'\u2026');
 
-    var rows=[],offset=0;
-    for(var page=0;page<3;page++){
-      var qp={where:w.length?w.join(" AND "):"1=1",
-        outFields:outF.length?outF.join(","):"*",returnGeometry:"false",
-        resultOffset:String(offset),resultRecordCount:"1000",f:"json"};
-      if(src.order) qp.orderByFields=src.order;
-      /* a centroid is far cheaper than the parcel polygon and it is all the
-         aerial view needs. outSR 4326 so it comes back as plain lat/lon. */
-      if(src.centroid){ qp.returnCentroid="true"; qp.outSR="4326"; }
-      var p=new URLSearchParams(qp);
-      var r=await getJSON(src.q+"?"+p);
-      var fs=r.features||[]; if(!fs.length) break;
-      fs.forEach(function(ft){
-        var a=ft.attributes||{};
-        var sp=splitSitus(a[F.addr]);
-        var pcity=city||sp.city;
-        var mcity=F.mailcity?String(a[F.mailcity]||"").trim():"";
-        var ex=F.exempt?String(a[F.exempt]||"").trim():"";
-        var homestead=/\bHS\b/i.test(ex);
-        var out=!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase());
-        var pid=F.pid?a[F.pid]:"";
-        var ct=ft.centroid||{};
-        rows.push({
-          lon:isFinite(ct.x)?ct.x:null, lat:isFinite(ct.y)?ct.y:null,
-          address:titleCase(sp.addr),city:titleCase(pcity),zip:F.mailzip&&!out?String(a[F.mailzip]||"").slice(0,5):"",
-          sqft:nz(a[F.sqft]),year:nz(a[F.year]),cad:nz(a[F.cad]),
-          owner:titleCase(a[F.owner]||""),
-          mail:titleCase([a[F.mail],mcity,F.mailstate?a[F.mailstate]:""].filter(Boolean).join(", ")),
-          mailcity:titleCase(mcity),
-          exempt:ex||(F.exempt?"none on file":""),
-          absentee:homestead?"N":"Y",outoftown:out,
-          pid:pid,link:(src.link&&pid)?src.link(pid):""
+      var offset=0, capped=false;
+      for(var page=0;page<PAGES;page++){
+        var qp={where:w.length?w.join(" AND "):"1=1",
+          outFields:outF.length?outF.join(","):"*",returnGeometry:"false",
+          resultOffset:String(offset),resultRecordCount:"1000",f:"json"};
+        if(source.order) qp.orderByFields=source.order;
+        /* a centroid is far cheaper than the parcel polygon and it is all the
+           aerial view needs. outSR 4326 so it comes back as plain lat/lon. */
+        if(source.centroid){ qp.returnCentroid="true"; qp.outSR="4326"; }
+        var r=await getJSON(source.q+"?"+new URLSearchParams(qp));
+        var fs=r.features||[]; if(!fs.length) break;
+        fs.forEach(function(ft){
+          var a=ft.attributes||{};
+          var sp=splitSitus(a[G.addr]);
+          /* some counties hand the address over in pieces, which beats parsing
+             a string that may or may not have the city glued on the end */
+          if(G.addrParts){
+            var bits=G.addrParts.map(function(k){return String(a[k]==null?"":a[k]).trim()})
+                                .filter(function(v){return v&&v!=="0"});
+            if(bits.length) sp={addr:bits.join(" ").replace(/\s+/g," "),city:""};
+          }
+          var pcity=(G.city&&a[G.city])?String(a[G.city]).trim():(city||sp.city);
+          var mcity=G.mailcity?String(a[G.mailcity]||"").trim():"";
+          var ex=G.exempt?String(a[G.exempt]||"").trim():"";
+          var homestead=/\bHS\b/i.test(ex);
+          var mst=G.mailstate?String(a[G.mailstate]||"").trim():"";
+          var away=!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase());
+          var pid=G.pid?a[G.pid]:"";
+          var ct=ft.centroid||{};
+          out.push({
+            lon:isFinite(ct.x)?ct.x:null, lat:isFinite(ct.y)?ct.y:null,
+            address:titleCase(sp.addr),city:titleCase(pcity)||city,
+            zip:G.zip?String(a[G.zip]||"").slice(0,5):(G.mailzip&&!away?String(a[G.mailzip]||"").slice(0,5):""),
+            sqft:nz(a[G.sqft]),year:nz(a[G.year]),cad:nz(a[G.cad]),
+            owner:titleCase(a[G.owner]||""),
+            mail:titleCase([a[G.mail],mcity,mst].filter(Boolean).join(", ")),
+            mailcity:titleCase(mcity),
+            exempt:ex||(G.exempt?"none on file":""),
+            absentee:homestead?"N":"Y",outoftown:away,
+            pid:pid,link:(source.link&&pid)?source.link(pid):""
+          });
         });
-      });
-      offset+=fs.length;
-      setStat('<span class="spin"></span>'+offset.toLocaleString()+" parcels read…");
-      if(!r.exceededTransferLimit&&fs.length<1000) break;
+        offset+=fs.length;
+        setStat('<span class="spin"></span>'+offset.toLocaleString()+" parcels read\u2026");
+        capped = (page===PAGES-1) && (r.exceededTransferLimit||fs.length===1000);
+        if(!r.exceededTransferLimit&&fs.length<1000) break;
+      }
+      out.capped=capped; out.loose=loose;
+      return out;
+    }
+
+    var rows;
+    try{
+      rows=await pull(src);
+    }catch(err0){
+      if(!src.alt) throw err0;
+      setStat('<span class="spin"></span>That server didn\u2019t answer \u2014 trying the mirror\u2026');
+      rows=await pull(src.alt);
+      src=src.alt;
     }
 
     var usable=rows.filter(function(r){return r.address&&nz(r.sqft)>0});
     if(!usable.length){
+      clearList();
       if(!rows.length) setStat("Nothing in "+(city||county)+" matched that buy box. Widen the sq ft or year range, or raise Max ARV.","err");
       else setStat("Read "+rows.length.toLocaleString()+" parcels but none carried both an address and a building size. That layer is probably boundaries only.","err");
       return false;
     }
     var kept=usable.filter(inBox);
     setStat("<b>"+usable.length.toLocaleString()+"</b> real parcels from "+(src.label||county+" County")+
-            " · "+kept.length.toLocaleString()+" fit your buy box.","ok");
+            " \u00b7 "+kept.length.toLocaleString()+" fit your buy box."+
+            (rows.capped?" That is the "+(PAGES*1000).toLocaleString()+" cheapest that fit \u2014 tighten the buy box to see further up the market.":"")+
+            (rows.loose?" No taxing-unit code on file for "+titleCase(city)+", so this matched on address text \u2014 it can miss parcels whose record omits the city.":""),"ok");
     render(kept.length?kept:usable,(city?titleCase(city):county+" County")+" · live county records");
     return true;
   }catch(err){
@@ -768,7 +846,7 @@ document.querySelectorAll(".inp").forEach(function(i){
       exempt:p.exempt,pid:p.pid,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon}}),"Re-ranked"); }
   });
 });
-$("mktTag").textContent="Hidalgo CAD \u2014 live";
+$("mktTag").textContent="Hidalgo + Cameron \u2014 live";
 /* Load real parcels on arrival. If the county server is unreachable, fall back
    to the demo set rather than showing an empty page. */
 (async function(){
