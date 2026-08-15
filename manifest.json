@@ -1,0 +1,35 @@
+{
+  "name": "Deal Engine — Deal Finder",
+  "short_name": "Deal Engine",
+  "description": "Rank a whole market from live county appraisal records, best to worst, with a walk-in offer on every parcel.",
+  "id": "/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#faf7f3",
+  "theme_color": "#bf5700",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Find deals",
+      "short_name": "Find",
+      "description": "Rank a market",
+      "url": "./index.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Underwrite one property",
+      "short_name": "One property",
+      "description": "Flip, rental, BRRRR and wholesale on a single house",
+      "url": "./calc.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

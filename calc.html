@@ -229,7 +229,30 @@ details.acc .bd{padding:0 13px 13px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .status{font-size:12px;color:var(--txt3);margin-top:9px;min-height:17px;line-height:1.5}
 .status.err{color:var(--bad)} .status.ok{color:var(--good)}
+
+/* installed to the home screen: no browser chrome, so we owe the notch its space */
+@media all and (display-mode:standalone){
+  header{padding-top:calc(11px + env(safe-area-inset-top))}
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+}
+#a2hs{position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:90;
+ background:var(--card);border:1px solid var(--line2);border-radius:13px;padding:12px 13px;
+ box-shadow:0 6px 22px rgba(31,26,21,.14);display:none;gap:11px;align-items:center}
+#a2hs.on{display:flex}
+#a2hs .ai{width:34px;height:34px;border-radius:9px;flex:none}
+#a2hs .at{flex:1;min-width:0;font-size:12.5px;line-height:1.45;color:var(--txt2)}
+#a2hs .at b{color:var(--txt);display:block;font-size:13px;margin-bottom:1px}
+#a2hs button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:8px 12px;
+ font-size:12.5px;font-weight:750;flex:none}
+#a2hs .x{background:none;color:var(--txt3);font-size:19px;padding:0 4px;font-weight:600}
 </style>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Deal Engine">
 </head>
 <body>
 <header class="top">
@@ -1954,6 +1977,62 @@ $("f_sqft").addEventListener("change",()=>{ if(confirm("Sq ft changed — reload
 /* ---------- boot ---------- */
 fillCounties();
 loadDemo("mcallen");
+</script>
+
+<script>
+/* ---- installable app ------------------------------------------------------
+   A service worker plus a manifest is the whole difference between a web page
+   and something that lives on the home screen with its own icon and no browser
+   bars. No store, no review, no developer account.                           */
+(function(){
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
+  var standalone = window.matchMedia("(display-mode: standalone)").matches
+                   || window.navigator.standalone === true;
+  if(standalone) return;
+
+  var dismissed=false;
+  try{ dismissed = localStorage.getItem("de_a2hs")==="1"; }catch(e){}
+  if(dismissed) return;
+
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var bar=null, deferred=null;
+
+  function build(html){
+    bar=document.createElement("div");
+    bar.id="a2hs";
+    bar.innerHTML='<img class="ai" src="icon-192.png" alt="">'+html+
+      '<button class="x" aria-label="Dismiss">&times;</button>';
+    document.body.appendChild(bar);
+    bar.querySelector(".x").onclick=function(){
+      bar.classList.remove("on");
+      try{ localStorage.setItem("de_a2hs","1"); }catch(e){}
+    };
+    setTimeout(function(){ bar.classList.add("on"); }, 2600);
+  }
+
+  if(ios){
+    build('<div class="at"><b>Put this on your home screen</b>'+
+          'Tap Share, then <b style="display:inline">Add to Home Screen</b>.</div>');
+  } else {
+    window.addEventListener("beforeinstallprompt",function(ev){
+      ev.preventDefault(); deferred=ev;
+      if(bar) return;
+      build('<div class="at"><b>Install Deal Engine</b>Runs full screen, opens offline.</div>'+
+            '<button id="a2hsGo">Install</button>');
+      var go=document.getElementById("a2hsGo");
+      if(go) go.onclick=function(){
+        bar.classList.remove("on");
+        deferred.prompt();
+        deferred=null;
+        try{ localStorage.setItem("de_a2hs","1"); }catch(e){}
+      };
+    });
+  }
+})();
 </script>
 </body>
 </html>
