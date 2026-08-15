@@ -198,6 +198,8 @@ header .cnt{color:rgba(238,242,249,.62)}
 .cadrow .x{margin-left:auto;background:none;border:0;color:var(--bad);font-size:16px;padding:0 4px}
 label.f.sm2>span{font-size:9.5px}
 label.f.sm2 .inp{padding:7px 9px;font-size:13px}
+#buildTag{text-align:center;font-size:10.5px;color:var(--txt3);margin:16px 0 4px;letter-spacing:.02em}
+#buildTag a{color:var(--acc2);font-weight:700}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -352,6 +354,7 @@ label.f.sm2 .inp{padding:7px 9px;font-size:13px}
 </div>
 
 <div id="results"></div>
+<p id="buildTag">Build 2026-08-15 · 6 · Hidalgo + Cameron wired · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -1052,6 +1055,22 @@ $("ncSave").onclick=function(){
   };
 })();
 mergeCounties();
+
+/* a build stamp, and a way out of a stale cache without deleting the app */
+$("bustCache").onclick=async function(e){
+  e.preventDefault();
+  try{
+    if("caches" in window){
+      var ks=await caches.keys();
+      await Promise.all(ks.map(function(k){ return k==="de-tiles"?null:caches.delete(k) }));
+    }
+    if(navigator.serviceWorker){
+      var rs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(rs.map(function(r){ return r.unregister() }));
+    }
+  }catch(err){}
+  location.reload(true);
+};
 
 /* recompute on any input change if a list is already up */
 document.querySelectorAll(".inp").forEach(function(i){
