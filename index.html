@@ -210,6 +210,17 @@ input,select,textarea,
 .tbl input,.tbl select,.tbl .inp,
 label.f.sm2 .inp{font-size:16px !important}
 label.f.sm2 .inp{padding:8px 9px}
+
+.hit{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:8px;background:var(--card)}
+.hit.best{border-color:var(--acc);box-shadow:0 0 0 2px rgba(233,120,42,.12)}
+.hit .ht{font-size:13.5px;font-weight:700;line-height:1.3}
+.hit .hm{font-size:11px;color:var(--txt3);font-family:var(--mono);margin-top:3px}
+.hit .hs{font-size:12px;color:var(--txt2);margin-top:6px;line-height:1.45}
+.hit .hb{margin-top:9px}
+.pips{display:flex;gap:3px;flex-wrap:wrap;margin-top:7px}
+.pip{font-size:9.5px;font-weight:750;letter-spacing:.03em;padding:3px 6px;border-radius:5px;
+ background:rgba(18,120,90,.10);color:var(--good);border:1px solid rgba(18,120,90,.26)}
+.pip.no{background:var(--bg2);color:var(--txt3);border-color:var(--line)}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -304,19 +315,22 @@ label.f.sm2 .inp{padding:8px 9px}
     </div></details>
 
     <details class="acc" id="cadBox"><summary>Add a county</summary><div class="bd">
-      <p class="hint">Paste a county parcel layer's <b>/query</b> URL. It reads the field
-        list, guesses which column is which, and you correct anything it got wrong.
-        Saved on this phone.</p>
+      <p class="hint">Name a county and it goes looking. It searches the national ArcGIS
+        catalogue, throws out anything outside that state, checks each candidate for the
+        columns an offer actually needs, and pulls a live record to prove it works.</p>
       <div class="grid g2" style="margin-bottom:9px">
-        <label class="f"><span>State</span><input class="inp" id="nc_state" value="TX" maxlength="2"></label>
+        <label class="f"><span>State</span><select class="inp" id="nc_state"></select></label>
         <label class="f"><span>County</span><input class="inp" id="nc_county" placeholder="Starr"></label>
       </div>
+      <button class="btn wide" id="ncFind">🔎 Find this county</button>
+      <div class="status" id="ncFindStatus"></div>
+      <div id="ncHits"></div>
+      <details class="acc" id="manualBox"><summary>Or paste the URL yourself</summary><div class="bd">
       <input class="inp" id="nc_url" placeholder="https://…/FeatureServer/0/query">
       <div class="row" style="margin-top:9px">
         <button class="btn sm" id="ncRead">Read the fields</button>
-        <button class="btn ghost sm" id="ncTest" disabled>Test 5 rows</button>
-        <button class="btn ghost sm" id="ncSave" disabled>Save county</button>
       </div>
+      </div></details>
       <div class="status" id="ncStatus"></div>
       <div id="ncMap" style="display:none">
         <div class="grid g2" id="ncFields"></div>
@@ -326,6 +340,10 @@ label.f.sm2 .inp{padding:8px 9px}
         </div>
         <p class="hint">Leave the class code blank if the layer has no class column. Anything
           set to <b>—</b> is simply not used.</p>
+        <div class="row" style="margin-top:4px">
+          <button class="btn ghost sm" id="ncTest" disabled>Test 5 rows</button>
+          <button class="btn sm" id="ncSave" disabled style="flex:1">Save this county</button>
+        </div>
       </div>
       <div id="ncList" style="margin-top:11px"></div>
     </div></details>
@@ -366,7 +384,7 @@ label.f.sm2 .inp{padding:8px 9px}
 </div>
 
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-15 · 8 · Hidalgo + Cameron wired · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-15 · 9 · county search · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -1045,7 +1063,7 @@ $("ncSave").onclick=function(){
   var c=customCounties(); c[key]=src; saveCounties(c); SRC[key]=src;
   drawCountyList();
   fillCounties();
-  ncStat("Saved. Put <b>"+$("nc_county").value.trim()+"</b> in the County box and hit Find deals.","ok");
+  ncStat("Saved. <b>"+$("nc_county").value.trim()+" County</b> is in the County dropdown now.","ok");
 };
 
 (function(){
@@ -1065,6 +1083,175 @@ $("ncSave").onclick=function(){
     if(LIST.length) render(LIST.map(reseed),"Re-ranked");
   };
 })();
+
+/* ---- county finder --------------------------------------------------------
+   Counties publish parcel data to ArcGIS Online, which is a national catalogue
+   with a public search endpoint. So: search it, throw out anything whose extent
+   falls outside the state you asked for (there is a Cameron County in
+   Pennsylvania and a CCAD in Collin County — both will happily match a naive
+   text search), score what is left on whether it carries the columns an offer
+   needs, and prove the winner by pulling a live record from it.              */
+
+/* rough bounding boxes, west/south/east/north — only precise enough to reject
+   a service that is in the wrong part of the country */
+var SBOX={AL:[-88.5,30.1,-84.8,35.1],AK:[-172,51,-129,72],AZ:[-115,31.3,-109,37.1],
+AR:[-94.7,33,-89.6,36.6],CA:[-124.5,32.5,-114.1,42.1],CO:[-109.1,36.9,-102,41.1],
+CT:[-73.8,40.9,-71.7,42.1],DE:[-75.8,38.4,-74.9,39.9],FL:[-87.7,24.4,-79.9,31.1],
+GA:[-85.7,30.3,-80.8,35.1],HI:[-160.3,18.8,-154.7,22.3],ID:[-117.3,41.9,-111,49.1],
+IL:[-91.6,36.9,-87.4,42.6],IN:[-88.1,37.7,-84.7,41.8],IA:[-96.7,40.3,-90.1,43.6],
+KS:[-102.1,36.9,-94.5,40.1],KY:[-89.6,36.4,-81.9,39.2],LA:[-94.1,28.9,-88.8,33.1],
+ME:[-71.2,42.9,-66.9,47.5],MD:[-79.5,37.8,-75,39.8],MA:[-73.6,41.1,-69.8,42.9],
+MI:[-90.5,41.6,-82.3,48.3],MN:[-97.3,43.4,-89.4,49.5],MS:[-91.7,30.1,-88,35.1],
+MO:[-95.8,35.9,-89,40.7],MT:[-116.1,44.3,-104,49.1],NE:[-104.1,39.9,-95.3,43.1],
+NV:[-120.1,35,-114,42.1],NH:[-72.6,42.6,-70.6,45.4],NJ:[-75.6,38.9,-73.8,41.4],
+NM:[-109.1,31.3,-103,37.1],NY:[-79.8,40.4,-71.8,45.1],NC:[-84.4,33.8,-75.4,36.7],
+ND:[-104.1,45.9,-96.5,49.1],OH:[-84.9,38.4,-80.5,42.4],OK:[-103.1,33.6,-94.4,37.1],
+OR:[-124.6,41.9,-116.4,46.3],PA:[-80.6,39.7,-74.6,42.4],RI:[-71.9,41.1,-71.1,42.1],
+SC:[-83.4,32,-78.5,35.3],SD:[-104.1,42.4,-96.4,46],TN:[-90.4,34.9,-81.6,36.7],
+TX:[-106.7,25.8,-93.5,36.6],UT:[-114.1,36.9,-109,42.1],VT:[-73.5,42.7,-71.4,45.1],
+VA:[-83.7,36.5,-75.2,39.5],WA:[-124.9,45.5,-116.9,49.1],WV:[-82.7,37.1,-77.7,40.7],
+WI:[-92.9,42.4,-86.2,47.4],WY:[-111.1,40.9,-104,45.1],DC:[-77.2,38.7,-76.9,39.1]};
+
+function inState(ext,st){
+  var b=SBOX[st]; if(!b||!ext||!ext.length) return true;   /* no box, no opinion */
+  var x1=ext[0][0],y1=ext[0][1],x2=ext[1][0],y2=ext[1][1];
+  if(!isFinite(x1)||Math.abs(x1)>180) return true;
+  return !(x2<b[0]||x1>b[2]||y2<b[1]||y1>b[3]);
+}
+function fStat(m,c){ var e=$("ncFindStatus"); e.className="status"+(c?" "+c:""); e.innerHTML=m; }
+
+/* the columns that matter, and what each is worth */
+var WANT=[["addr","Address",3],["sqft","Sq ft",3],["cad","Value",2],["year","Year",2],
+          ["owner","Owner",1],["mail","Mailing",1],["cls","Class",1],["exempt","Exempt",1]];
+
+function guessMap(names){
+  var f={};
+  MAPKEYS.forEach(function(p){
+    var re=FIELD[p[0]], g=re?pickField(names,re):null;
+    if(!g && p[0]==="mailcity")  g=pickField(names,/mail.*city|addr.*city|own.*city/i);
+    if(!g && p[0]==="mailstate") g=pickField(names,/mail.*st(ate)?$|addr.*state|own.*state/i);
+    if(!g && p[0]==="mailzip")   g=pickField(names,/mail.*zip|addr.*zip|own.*zip/i);
+    if(!g && p[0]==="city")      g=pickField(names,/situs.*city|prop.*city|^sitcity$|^city$/i);
+    if(!g && p[0]==="zip")       g=pickField(names,/situs.*zip|prop.*zip|^sitzip$|^zip$/i);
+    if(!g && p[0]==="cls")       g=pickField(names,/state_?cd|^class$|land_?use|proptype/i);
+    if(!g && p[0]==="exempt")    g=pickField(names,/exempt|^exms$/i);
+    if(!g && p[0]==="pid")       g=pickField(names,/prop_?id|^pid$|parcel_?id|geo_?id/i);
+    if(g) f[p[0]]=g;
+  });
+  return f;
+}
+
+async function probe(url,title,owner){
+  /* enumerate the service, pick the layer most likely to be parcels, read its
+     fields, then actually pull one row — a schema that looks right and returns
+     nothing is the commonest dead end */
+  var svc=await getJSON(url.replace(/\/+$/,"")+"?f=json");
+  var layers=(svc.layers||[]).concat(svc.tables||[]);
+  if(!layers.length) layers=[{id:0,name:"0"}];
+  var pick=layers.filter(function(l){return /parcel|propert|cad/i.test(l.name||"")})[0]||layers[0];
+  var lyr=await getJSON(url.replace(/\/+$/,"")+"/"+pick.id+"?f=json");
+  var names=(lyr.fields||[]).map(function(x){return x.name});
+  if(!names.length) return null;
+  var f=guessMap(names), score=0, have={};
+  WANT.forEach(function(w){ if(f[w[0]]){ score+=w[2]; have[w[0]]=1 } });
+  if(!f.addr||!f.sqft) return null;                       /* not workable, skip */
+  var q=url.replace(/\/+$/,"")+"/"+pick.id+"/query";
+  var r=await getJSON(q+"?where=1%3D1&outFields=*&returnGeometry=false&resultRecordCount=1&f=json");
+  var ft=(r.features||[])[0];
+  if(!ft) return null;
+  var a=ft.attributes||{};
+  var sample=String(a[f.addr]||"").trim();
+  if(!sample) score-=2;
+  return {q:q,title:title,owner:owner,layer:lyr.name||pick.name,fields:names,f:f,
+          score:score,have:have,sample:sample,
+          sqft:nz(a[f.sqft]), val:f.cad?nz(a[f.cad]):0, cls:f.cls?String(a[f.cls]||"").trim():""};
+}
+
+$("ncFind").onclick=async function(){
+  var st=$("nc_state").value, cty=$("nc_county").value.trim();
+  if(!cty){ fStat("Name the county first.","err"); return }
+  $("ncFind").disabled=true; $("ncHits").innerHTML="";
+  try{
+    fStat('<span class="spin"></span>Searching the national catalogue…');
+    var qs=['"'+cty+' County" parcels','"'+cty+'" parcels '+st,cty+' county appraisal parcels'];
+    var seen={}, items=[];
+    for(var i=0;i<qs.length;i++){
+      var u="https://www.arcgis.com/sharing/rest/search?f=json&num=20&sortField=numviews"+
+            "&sortOrder=desc&q="+encodeURIComponent(qs[i]+' (type:"Feature Service" OR type:"Map Service")');
+      var j=await getJSON(u);
+      (j.results||[]).forEach(function(it){
+        if(!it.url||seen[it.url]) return;
+        if(!inState(it.extent,st)) return;
+        seen[it.url]=1; items.push(it);
+      });
+      if(items.length>=14) break;
+    }
+    if(!items.length){ fStat("Nothing in the catalogue for "+cty+" County, "+st+
+      ". Some counties publish nowhere public. Try the manual URL if you can find one on their GIS site.","err");
+      return; }
+    var good=[], checked=0;
+    for(var k=0;k<items.length && good.length<5;k++){
+      checked++;
+      fStat('<span class="spin"></span>Checking candidate '+checked+' of '+items.length+'…');
+      try{
+        var res=await probe(items[k].url,items[k].title,items[k].owner);
+        if(res) good.push(res);
+      }catch(e){ /* CORS refusal, dead layer, token wall — all just "no" */ }
+    }
+    if(!good.length){
+      fStat("Found "+items.length+" candidate services but none carried both an address and a "+
+            "building size, or none would answer a browser. "+cty+" may not publish parcels with "+
+            "square footage.","err");
+      return;
+    }
+    good.sort(function(a,b){return b.score-a.score});
+    fStat("<b>"+good.length+"</b> that work, out of "+checked+" checked. Best first.","ok");
+    $("ncHits").innerHTML=good.map(function(g,i){
+      return '<div class="hit'+(i?"":" best")+'">'+
+        '<div class="ht">'+(g.title||g.layer)+'</div>'+
+        '<div class="hm">'+(g.owner||"")+'</div>'+
+        '<div class="pips">'+WANT.map(function(w){
+            return '<span class="pip'+(g.have[w[0]]?"":" no")+'">'+w[1]+'</span>' }).join("")+'</div>'+
+        '<div class="hs">'+(g.sample?"<b>"+g.sample+"</b>":"<i>no address in the first row</i>")+
+          (g.sqft?" · "+Math.round(g.sqft).toLocaleString()+" sq ft":"")+
+          (g.val?" · "+money(g.val):"")+
+          (g.cls?' · class <b>'+g.cls+'</b>':"")+'</div>'+
+        '<div class="hb"><button class="btn sm" data-i="'+i+'">Use this one</button></div></div>';
+    }).join("");
+    [].forEach.call($("ncHits").querySelectorAll("button[data-i]"),function(btn){
+      btn.onclick=function(){ useHit(good[+btn.dataset.i]); };
+    });
+  }catch(e){
+    fStat("Search failed: "+(e.message||e),"err");
+  }finally{ $("ncFind").disabled=false; }
+};
+
+function useHit(g){
+  $("nc_url").value=g.q;
+  $("nc_label").value=$("nc_county").value.trim()+" CAD";
+  NC.fields=g.fields;
+  $("ncFields").innerHTML=MAPKEYS.map(function(p){
+    var sel=g.f[p[0]]||"";
+    return '<label class="f sm2"><span>'+p[1]+'</span><select class="inp" id="ncf_'+p[0]+'">'+
+      '<option value="">—</option>'+
+      g.fields.map(function(n){return '<option'+(n===sel?" selected":"")+'>'+n+'</option>'}).join("")+
+      '</select></label>';
+  }).join("");
+  $("ncMap").style.display="block";
+  $("ncTest").disabled=false; $("ncSave").disabled=false;
+  /* single-family codes differ by county: A1 in Hidalgo, A in Cameron. Seed it
+     from the row we just pulled rather than guessing. */
+  if(g.cls && /^[A-Z]\d?$/i.test(g.cls)) $("nc_cls").value=g.cls;
+  ncStat("Mapped from <b>"+(g.title||g.layer)+"</b>. Check the columns, test, then save.","ok");
+  $("ncMap").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+(function(){
+  var sel=$("nc_state");
+  sel.innerHTML=STATES.map(function(a){return '<option value="'+a[0]+'">'+a[1]+'</option>'}).join("");
+  sel.value="TX";
+})();
+
 mergeCounties();
 
 /* ---- the two pickers ------------------------------------------------------

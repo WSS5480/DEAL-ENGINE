@@ -8,7 +8,7 @@
  *   aerial tiles     cache first                      — imagery from 2024 is
  *                                                       the same imagery today
  */
-var VERSION = "de-2026-08-15-h";
+var VERSION = "de-2026-08-15-i";
 var SHELL   = VERSION + "-shell";
 var TILES   = "de-tiles";
 var TILE_MAX = 400;               // roughly 25 MB of imagery, then oldest go
