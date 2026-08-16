@@ -40,10 +40,36 @@ import urllib.request
 UA = "DealFinder/1.0 (+https://github.com/WSS5480/DEAL-ENGINE)"
 RENTCAST = "https://api.rentcast.io/v1/listings/sale"
 
+# PBFCM moves these files around and the Valley counties are not on their index
+# page — these are direct URLs, so try more than one shape per county and accept
+# that a 404 is normal rather than fatal.
 TAX_PDFS = {
-    "Hidalgo": "https://pbfcm.com/docs/taxdocs/resales/hidalgotaxresale.pdf",
-    "Cameron": "https://www.pbfcm.com/docs/taxdocs/sales/cameroncountytaxresale.pdf",
+    "Hidalgo": [
+        "https://pbfcm.com/docs/taxdocs/resales/hidalgotaxresale.pdf",
+        "https://www.pbfcm.com/docs/taxdocs/resales/hidalgotaxresale.pdf",
+    ],
+    "Cameron": [
+        "https://www.pbfcm.com/docs/taxdocs/resales/cameroncountytaxresale.pdf",
+        "https://pbfcm.com/docs/taxdocs/resales/camerontaxresale.pdf",
+        "https://www.pbfcm.com/docs/taxdocs/sales/cameroncountytaxresale.pdf",
+    ],
 }
+
+SALE_DATE = re.compile(r"RESALES?\s+FOR\s+([A-Z]+\s+\d{1,2},\s+\d{4})", re.I)
+MONTHS = {m: i + 1 for i, m in enumerate(
+    "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER "
+    "NOVEMBER DECEMBER".split())}
+
+
+def sale_date_of(text):
+    m = SALE_DATE.search(text)
+    if not m:
+        return ""
+    try:
+        mon, day, yr = re.split(r"[\s,]+", m.group(1).strip())
+        return "%s-%02d-%02d" % (yr, MONTHS[mon.upper()], int(day))
+    except Exception:                                            # noqa: BLE001
+        return ""
 
 SUFFIX = re.compile(
     r"\b(STREET|ST|AVENUE|AVE|ROAD|RD|DRIVE|DR|LANE|LN|BOULEVARD|BLVD|COURT|CT"
@@ -124,13 +150,18 @@ ACCT = re.compile(r"\b([A-Z]?\d[\dA-Z]{9,})\b")
 MONEY = re.compile(r"\$?\s?([\d,]+\.\d{2}|[\d,]{4,})")
 
 
-def parse_tax_pdf(url, county):
+def parse_tax_pdf(urls, county):
     """The PBFCM sheets are a fixed-column table. Pull the account number and
     the minimum bid off each line; skip anything that doesn't carry both."""
-    try:
-        raw = get(url)
-    except Exception as e:                                       # noqa: BLE001
-        print(f"  {county}: could not fetch — {e}", file=sys.stderr)
+    raw = None
+    for u in (urls if isinstance(urls, list) else [urls]):
+        try:
+            raw = get(u)
+            break
+        except Exception:                                        # noqa: BLE001
+            continue
+    if raw is None:
+        print(f"  {county}: no resale sheet published right now", file=sys.stderr)
         return {}
 
     text = ""
@@ -146,6 +177,7 @@ def parse_tax_pdf(url, county):
         print(f"  {county}: PDF unreadable — {e}", file=sys.stderr)
         return {}
 
+    sold_on = sale_date_of(text)
     out = {}
     for line in text.splitlines():
         m = ACCT.search(line)
@@ -166,6 +198,7 @@ def parse_tax_pdf(url, county):
                 "cad": int(max(amounts)) if len(amounts) > 1 else None,
                 "cause": cause,
                 "county": county,
+                "saleDate": sold_on,
             }
         }
     print(f"  {county}: {len(out)} on the resale list")
@@ -190,10 +223,22 @@ def main():
     else:
         print("RENTCAST_KEY not set — skipping the for-sale half.")
 
+    # never ship an empty tax half just because a PDF moved — keep what we had
+    prior = {}
+    if os.path.exists(a.out):
+        try:
+            prior = json.load(open(a.out, encoding="utf-8")).get("byGeo", {})
+        except Exception:                                        # noqa: BLE001
+            prior = {}
+
     print("Tax resale lists (PBFCM):")
-    for county, url in TAX_PDFS.items():
-        for k, v in parse_tax_pdf(url, county).items():
+    for county, urls in TAX_PDFS.items():
+        for k, v in parse_tax_pdf(urls, county).items():
             by_geo.setdefault(k, {}).update(v)
+
+    if not by_geo and prior:
+        print("  no sheets parsed — keeping the previous tax flags")
+        by_geo = prior
 
     doc = {
         "generated": dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),

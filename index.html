@@ -389,7 +389,7 @@ label.f.sm2 .inp{padding:8px 9px}
 </div>
 
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 10 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 11 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -597,11 +597,15 @@ function render(rows,label,jump){
             : 'That is at or under your walk-in number — worth a call today. ')+
           'Someone already has this one in front of buyers.</div>':'')+
         (p.flag&&p.flag.tax?
-          '<div class="note bad"><b>On the tax resale list</b>'+
+          '<div class="note bad"><b>On the '+(p.flag.tax.county||'county')+' tax resale list</b>'+
           (p.flag.tax.min?' · minimum bid '+money(p.flag.tax.min):'')+
-          (p.flag.tax.cause?' · cause '+p.flag.tax.cause:'')+
-          '. The county is selling it for back taxes. Different process entirely — you bid at auction, '+
-          'usually sight unseen, and you inherit whatever is on it.</div>':'')+
+          (p.flag.tax.cad?' · county value '+money(p.flag.tax.cad):'')+
+          (p.flag.tax.saleDate?' · sale '+p.flag.tax.saleDate:'')+
+          (p.flag.tax.cause?' · cause '+p.flag.tax.cause:'')+'.'+
+          (p.flag.tax.legal?' '+p.flag.tax.legal+'.':'')+
+          ' The county is selling this for back taxes. Different game from a mailer — you bid at '+
+          'auction, usually without getting inside, and you take it with whatever is on it. '+
+          'A past sale date means it went unsold and rolls to the next one.</div>':'')+
         '<div class="led"><span class="l">70% rule</span><b>'+money(p.rule)+'</b></div>'+
         '<div class="led"><span class="l">Profit-backed</span><b>'+money(p.backed)+'</b></div>'+
         '<div class="led tot"><span class="l">Walk in at</span><b class="'+(p.offer>0?"pos":"neg")+'">'+money(p.offer)+'</b></div>'+
