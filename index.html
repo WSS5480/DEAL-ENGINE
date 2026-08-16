@@ -153,6 +153,7 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .phrow{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
 .phbtn{font-size:12px;font-weight:700;color:var(--acc2);text-decoration:none;
  border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--card)}
+.phbtn.dim{color:var(--txt3);font-weight:600}
 .phcred{font-size:9.5px;color:var(--txt3);margin-left:auto;white-space:nowrap}
 
 /* installed to the home screen: no browser chrome, so we owe the notch its space */
@@ -430,7 +431,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 14 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 15 · street view pano fix · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -558,11 +559,67 @@ function aerial(lat,lon,z,w,h,cls){
   }
   return out+'<i class="pin"></i></div>';
 }
+/* Street View deep link.
+ *
+ * The old link handed the parcel centroid straight to map_action=pano, which
+ * asks Google for a panorama AT THAT EXACT POINT and searches nowhere else. A
+ * centroid sits in the middle of the lot — frequently behind the house, 30 m
+ * off the road — so Google opened a black screen reading "No Street View
+ * imagery available here". The embedded photo above it worked fine at the same
+ * coordinates, because that call passes radius=70&source=outdoor and lets
+ * Google walk to the nearest pano on the street.
+ *
+ * So the link now does the same thing the photo does:
+ *
+ *   no key   cbll, the legacy parameter, which snaps to the nearest panorama
+ *            by itself. Less precise, never black.
+ *   with key resolve the real pano id off the free metadata endpoint, then
+ *            deep-link that pano with a heading computed from the pano back
+ *            toward the parcel — so it opens looking at the house, not down
+ *            the street. See tuneSV(), which runs when a card is opened.
+ */
 function streetView(lat,lon){
-  return "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+lat+","+lon;
+  return "https://www.google.com/maps?q=&layer=c&cbll="+lat+","+lon+"&cbp=12,0,0,0,0";
 }
 function mapLink(lat,lon){
   return "https://www.google.com/maps/search/?api=1&query="+lat+","+lon;
+}
+/* initial compass bearing from one point to another, degrees clockwise from N */
+function bearing(aLat,aLon,bLat,bLon){
+  var r=Math.PI/180,
+      dl=(bLon-aLon)*r,
+      y=Math.sin(dl)*Math.cos(bLat*r),
+      x=Math.cos(aLat*r)*Math.sin(bLat*r)-Math.sin(aLat*r)*Math.cos(bLat*r)*Math.cos(dl);
+  return (Math.atan2(y,x)/r+360)%360;
+}
+/* Upgrade a card's Street View button from the snap-to-nearest link to an exact
+   pano. Metadata calls are free and unlimited, so this costs nothing — but it
+   needs a key, and it only fires once, the first time a card is opened. */
+function tuneSV(card,lat,lon){
+  var a=card.querySelector(".svlink");
+  if(!a||a.dataset.tuned) return;
+  a.dataset.tuned="1";
+  var k=svKey();
+  if(!k||!isFinite(lat)||!isFinite(lon)) return;      // cbll link stands
+  fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+lat+","+lon+
+        "&radius=70&source=outdoor&key="+encodeURIComponent(k))
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(j.status==="OK"&&j.pano_id){
+        var pl=j.location||{}, h=(isFinite(pl.lat)&&isFinite(pl.lng))?bearing(pl.lat,pl.lng,lat,lon):null;
+        a.href="https://www.google.com/maps/@?api=1&map_action=pano&pano="+encodeURIComponent(j.pano_id)+
+               "&viewpoint="+lat+","+lon+(h===null?"":"&heading="+Math.round(h))+"&pitch=5&fov=80";
+      }else if(j.status==="ZERO_RESULTS"){
+        /* genuinely no camera near this parcel — a rural caliche road, a new
+           subdivision. Send the button somewhere useful instead of to a black
+           screen, and say so on its face. */
+        a.href=mapLink(lat,lon);
+        a.textContent="No street view ↗";
+        a.classList.add("dim");
+      }
+      /* REQUEST_DENIED / OVER_QUERY_LIMIT: leave the cbll link, it needs no key */
+    })
+    .catch(function(){});
 }
 
 function reseed(p){
@@ -645,7 +702,7 @@ function render(rows,label,jump){
       '<div class="body">'+
         (p.lat?'<div class="photo">'+streetPhoto(p.lat,p.lon,330,168)+aerial(p.lat,p.lon,19,330,158)+
           '<div class="phrow">'+
-            '<a class="phbtn" href="'+streetView(p.lat,p.lon)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
+            '<a class="phbtn svlink" href="'+streetView(p.lat,p.lon)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
             '<a class="phbtn" href="'+mapLink(p.lat,p.lon)+'" target="_blank" rel="noopener">Map \u2197</a>'+
             '<span class="phcred">Imagery \u00a9 Esri, Maxar</span>'+
           '</div></div>':'')+
@@ -686,7 +743,12 @@ function render(rows,label,jump){
         '<div class="why">'+whyText(p)+'</div>'+
         (p.link?'<a class="cadlink" href="'+p.link+'" target="_blank" rel="noopener">Open the county record \u2197</a>':"")+
       '</div>';
-    d.onclick=function(){d.classList.toggle("open")};
+    d.onclick=function(e){
+      /* a tap on one of the photo buttons is a tap on that link, not on the card */
+      if(e&&e.target&&e.target.closest("a")) return;
+      d.classList.toggle("open");
+      if(d.classList.contains("open")&&p.lat) tuneSV(d,p.lat,p.lon);
+    };
     res.appendChild(d);
   });
   if(jump) window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
