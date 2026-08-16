@@ -195,6 +195,11 @@ header .cnt{color:rgba(238,242,249,.62)}
 .sv img{width:100%;height:100%;object-fit:cover;display:block}
 .svc{position:absolute;left:7px;bottom:6px;font-size:9.5px;font-weight:700;color:#fff;
  text-shadow:0 1px 3px rgba(0,0,0,.85);letter-spacing:.02em}
+/* the photo slot when there is no photo — say why, out loud, instead of
+   quietly deleting the frame and leaving you guessing */
+.sv.why{height:auto!important;padding:9px 11px;font-size:12px;line-height:1.45;
+ color:var(--txt2);display:block}
+.sv.why b{color:var(--txt);font-weight:700}
 .cadrow{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:7px 9px;
  background:var(--bg2);border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
 .cadrow b{font-weight:700}
@@ -431,7 +436,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 15 · street view pano fix · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 16 · street view + tap fix · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -578,8 +583,16 @@ function aerial(lat,lon,z,w,h,cls){
  *            toward the parcel — so it opens looking at the house, not down
  *            the street. See tuneSV(), which runs when a card is opened.
  */
-function streetView(lat,lon){
-  return "https://www.google.com/maps?q=&layer=c&cbll="+lat+","+lon+"&cbp=12,0,0,0,0";
+function streetView(p){
+  /* The keyless landing spot. cbll — the legacy "snap to the nearest panorama"
+     parameter — turned out to be dead on the iPhone: the Maps app takes the URL,
+     ignores the panorama request and drops you on its search screen with the
+     coordinates typed in. So with no key the button searches the ADDRESS, which
+     lands on the house with a Street View thumbnail one tap away. Never blank,
+     never black. With a key, tuneSV() replaces this with the real panorama. */
+  var q=[p.address,p.city,p.zip].filter(Boolean).join(", ");
+  if(!q) q=p.lat+","+p.lon;
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q);
 }
 function mapLink(lat,lon){
   return "https://www.google.com/maps/search/?api=1&query="+lat+","+lon;
@@ -600,7 +613,9 @@ function tuneSV(card,lat,lon){
   if(!a||a.dataset.tuned) return;
   a.dataset.tuned="1";
   var k=svKey();
-  if(!k||!isFinite(lat)||!isFinite(lon)) return;      // cbll link stands
+  if(!k||!isFinite(lat)||!isFinite(lon)){
+    a.textContent="Look it up ↗"; a.classList.add("dim"); return;
+  }
   fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+lat+","+lon+
         "&radius=70&source=outdoor&key="+encodeURIComponent(k))
     .then(function(r){return r.json()})
@@ -609,15 +624,18 @@ function tuneSV(card,lat,lon){
         var pl=j.location||{}, h=(isFinite(pl.lat)&&isFinite(pl.lng))?bearing(pl.lat,pl.lng,lat,lon):null;
         a.href="https://www.google.com/maps/@?api=1&map_action=pano&pano="+encodeURIComponent(j.pano_id)+
                "&viewpoint="+lat+","+lon+(h===null?"":"&heading="+Math.round(h))+"&pitch=5&fov=80";
+        a.classList.remove("dim");
       }else if(j.status==="ZERO_RESULTS"){
-        /* genuinely no camera near this parcel — a rural caliche road, a new
-           subdivision. Send the button somewhere useful instead of to a black
-           screen, and say so on its face. */
-        a.href=mapLink(lat,lon);
+        /* genuinely no camera near this parcel — a caliche road, a subdivision
+           built after the car came through. Say so on the button's face rather
+           than sending him to a black screen. */
         a.textContent="No street view ↗";
         a.classList.add("dim");
+      }else{
+        /* key rejected or quota — the address search still works */
+        a.textContent="Look it up ↗";
+        a.classList.add("dim");
       }
-      /* REQUEST_DENIED / OVER_QUERY_LIMIT: leave the cbll link, it needs no key */
     })
     .catch(function(){});
 }
@@ -702,7 +720,7 @@ function render(rows,label,jump){
       '<div class="body">'+
         (p.lat?'<div class="photo">'+streetPhoto(p.lat,p.lon,330,168)+aerial(p.lat,p.lon,19,330,158)+
           '<div class="phrow">'+
-            '<a class="phbtn svlink" href="'+streetView(p.lat,p.lon)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
+            '<a class="phbtn svlink" href="'+streetView(p)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
             '<a class="phbtn" href="'+mapLink(p.lat,p.lon)+'" target="_blank" rel="noopener">Map \u2197</a>'+
             '<span class="phcred">Imagery \u00a9 Esri, Maxar</span>'+
           '</div></div>':'')+
@@ -744,10 +762,16 @@ function render(rows,label,jump){
         (p.link?'<a class="cadlink" href="'+p.link+'" target="_blank" rel="noopener">Open the county record \u2197</a>':"")+
       '</div>';
     d.onclick=function(e){
-      /* a tap on one of the photo buttons is a tap on that link, not on the card */
-      if(e&&e.target&&e.target.closest("a")) return;
+      /* Closed card: tap anywhere to open it. Open card: only the header row
+         closes it again. Before this, a tap on the photo — or on any number you
+         were reading — collapsed the card under your thumb and threw the page
+         back up the list, which felt like the app resetting itself. */
+      var t=e&&e.target;
+      if(t&&t.closest&&t.closest("a")) return;
+      var was=d.classList.contains("open");
+      if(was&&!(t&&t.closest&&t.closest(".dhead"))) return;
       d.classList.toggle("open");
-      if(d.classList.contains("open")&&p.lat) tuneSV(d,p.lat,p.lon);
+      if(!was&&p.lat) tuneSV(d,p.lat,p.lon);
     };
     res.appendChild(d);
   });
@@ -1110,15 +1134,51 @@ function svKey(){
   try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" }
 }
 function streetPhoto(lat,lon,w,h){
+  if(!isFinite(lat)||!isFinite(lon)) return "";
   var k=svKey();
-  if(!k||!isFinite(lat)||!isFinite(lon)) return "";
+  if(!k) return '<div class="sv why"><b>No Street View key on this device.</b> '+
+    'Open <i>Street photos</i> below and paste your Google key, or commit it to '+
+    'config.js so every device gets photos.</div>';
   var u="https://maps.googleapis.com/maps/api/streetview?size="+Math.min(640,Math.round(w*2))+
         "x"+Math.min(640,Math.round(h*2))+"&location="+lat+","+lon+
         "&fov=78&pitch=8&radius=70&source=outdoor&return_error_code=true&key="+encodeURIComponent(k);
-  return '<div class="sv" style="height:'+h+'px">'+
+  return '<div class="sv" data-lat="'+lat+'" data-lon="'+lon+'" style="height:'+h+'px">'+
          '<img loading="lazy" decoding="async" alt="Street view of the property" '+
-         'onerror="this.parentNode.style.display=\'none\'" src="'+u+'">'+
+         'onerror="svFail(this)" src="'+u+'">'+
          '<span class="svc">Google</span></div>';
+}
+/* The old handler deleted the frame on any failure, which made three completely
+   different problems look identical: no camera on that street, a key Google
+   rejected, and billing not enabled. Ask the free metadata endpoint what went
+   wrong and put the answer on the screen. */
+function svFail(img){
+  var box=img.parentNode; if(!box) return;
+  img.style.display="none";
+  var c=box.querySelector(".svc"); if(c) c.style.display="none";
+  var lat=box.getAttribute("data-lat"), lon=box.getAttribute("data-lon"), k=svKey();
+  function say(h){ box.className="sv why"; box.removeAttribute("style"); box.innerHTML=h; }
+  fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+lat+","+lon+
+        "&radius=70&source=outdoor&key="+encodeURIComponent(k))
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(j.status==="ZERO_RESULTS")
+        say("<b>No Street View camera near this parcel.</b> Nothing wrong with the key — "+
+            "Google has never driven this street. The aerial below is what there is.");
+      else if(j.status==="OK")
+        say("<b>Google has a photo here but won't send it.</b> The metadata call went "+
+            "through, so the key is valid — the image call is being blocked. Enable "+
+            "<i>Street View Static API</i> on the project, and make sure billing is on.");
+      else if(j.status==="REQUEST_DENIED")
+        say("<b>Google refused the key.</b> "+(j.error_message||"")+" Usually the Websites "+
+            "restriction: it has to list <i>"+location.origin+"/*</i>, with the scheme and "+
+            "the trailing /*.");
+      else
+        say("<b>Google says "+(j.status||"nothing")+".</b> "+(j.error_message||""));
+    })
+    .catch(function(){
+      say("<b>The Street View request never completed.</b> Usually a blocked key or no "+
+          "signal. Try <i>Test it</i> in the Street photos panel.");
+    });
 }
 
 /* ---- counties you add yourself --------------------------------------------
