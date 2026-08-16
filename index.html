@@ -256,7 +256,30 @@ label.f.sm2 .inp{padding:8px 9px}
      in front of this file — so editing config.js on GitHub can deploy fine and
      still never reach a phone that has seen the old one. Changing the URL is the
      only thing every layer of cache agrees to respect. Bump it with the build. -->
-<script src="config.js?v=17" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script>
+/* Catch the key before a second assignment can throw it away.
+ *
+ * config.js is edited by hand on a phone, and the failure that keeps happening
+ * is two `window.DE_CONFIG = {...}` blocks in one file — the good one first, an
+ * empty one after it. Last write wins, so a perfectly pasted key evaporates the
+ * instant the file finishes parsing, leaving nothing to debug.
+ *
+ * So make the property remember. Every assignment still behaves normally; this
+ * just keeps a reference to the first one that actually carried a key, and
+ * svKey() falls back to it. Duplicate blocks become harmless. */
+(function(){
+  var live, held=null;
+  try{
+    Object.defineProperty(window,"DE_CONFIG",{
+      configurable:true,
+      get:function(){ return live },
+      set:function(v){ if(v&&v.streetViewKey&&!held) held=v; live=v; }
+    });
+  }catch(e){}
+  window.DE_HELD=function(){ return held };
+})();
+</script>
+<script src="config.js?v=19" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -441,7 +464,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 17 · config cache-bust + key diagnosis · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 19 · Test it now saves the key · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -1136,6 +1159,8 @@ function svKey(){
      gets photos. localStorage is the per-phone fallback for a key you would
      rather not commit. */
   try{ if(window.DE_CONFIG && DE_CONFIG.streetViewKey) return DE_CONFIG.streetViewKey }catch(e){}
+  /* a later, emptier config block overwrote a good one — use what we caught */
+  try{ var h=window.DE_HELD&&DE_HELD(); if(h&&h.streetViewKey) return h.streetViewKey }catch(e){}
   try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" }
 }
 /* Which of the four ways "there is no key" can happen. They look identical on
@@ -1143,12 +1168,13 @@ function svKey(){
 function cfgState(){
   if(window.CFG_LOAD===0)              return "no-file";   // request failed outright
   if(typeof window.DE_CONFIG==="undefined") return "no-object"; // loaded, defined nothing
-  if(!window.DE_CONFIG.streetViewKey)  return "blank";     // loaded, key is ""
-  return "ok";
+  if(window.DE_CONFIG.streetViewKey)   return "ok";
+  try{ var h=window.DE_HELD&&DE_HELD(); if(h&&h.streetViewKey) return "rescued"; }catch(e){}
+  return "blank";                                          // loaded, key is ""
 }
 function cfgWhy(){
   var s=cfgState();
-  if(s==="ok") return "";
+  if(s==="ok"||s==="rescued") return "";
   if(s==="no-file")
     return "<b>config.js never loaded.</b> The file is missing from the site, or the "+
            "browser blocked it. Everything else on the page is fine.";
@@ -1345,15 +1371,22 @@ $("ncSave").onclick=function(){
           "&source=outdoor&key="+encodeURIComponent(k);
     try{
       var j=await (await fetch(u)).json();
+      /* A key Google just accepted must not evaporate because the next tap was
+         anything other than Save. Testing it IS saving it. */
+      var kept=false;
+      if(j.status==="OK"||j.status==="ZERO_RESULTS"){
+        try{ localStorage.setItem("de_svkey",k); kept=true }catch(e){}
+        if(RAW.length) render(RAW,LABEL,false);
+      }
+      var savedNote=kept?" <b>Saved to this device.</b>":"";
       if(j.status==="OK"){
         st.className="status ok";
-        st.innerHTML="Working. Nearest McAllen panorama is from <b>"+(j.date||"—")+"</b>. "+
-          "Open any property to see the house.";
-        if(LIST.length) render(RAW,LABEL,false);
+        st.innerHTML="Working. Nearest McAllen panorama is from <b>"+(j.date||"—")+"</b>."+
+          savedNote+" Open any property to see the house.";
       } else if(j.status==="ZERO_RESULTS"){
         st.className="status ok";
         st.innerHTML="Key is accepted — Google just has no panorama at that test point. "+
-          "That is fine; real addresses will work.";
+          "That is fine; real addresses will work."+savedNote;
       } else if(j.status==="REQUEST_DENIED"){
         st.className="status err";
         st.innerHTML="<b>Denied.</b> "+(j.error_message||"")+
@@ -1384,10 +1417,14 @@ $("ncSave").onclick=function(){
   (function(){
     var st=$("svStatus"), s=cfgState();
     var dev=""; try{ dev=localStorage.getItem("de_svkey")||"" }catch(e){}
-    if(s==="ok"){
+    if(s==="ok"||s==="rescued"){
       st.className="status ok";
       st.innerHTML="Key loaded from <b>config.js</b> — photos work on every device. "+
-                   "Tap <b>Test it</b> to confirm Google accepts it.";
+                   (s==="rescued"
+                     ? "<br>Heads up: config.js declares <b>window.DE_CONFIG</b> more than once and "+
+                       "the last one is empty. The app rescued the key, but tidy the file to one "+
+                       "line when you get a chance."
+                     : "Tap <b>Test it</b> to confirm Google accepts it.");
     }else if(dev){
       st.className="status ok";
       st.innerHTML="Using a key saved on <b>this device only</b>. config.js has none, so "+
