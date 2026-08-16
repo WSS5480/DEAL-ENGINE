@@ -251,7 +251,12 @@ label.f.sm2 .inp{padding:8px 9px}
  box-shadow:inset 0 0 0 2px var(--acc)}
 .fh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin:14px 0 8px;font-weight:750}
 </style>
-<script src="config.js" onerror="void 0"></script>
+<!-- The ?v= is not decoration. Render serves static assets with a long
+     Cache-Control, and both the browser's HTTP cache and the service worker sit
+     in front of this file — so editing config.js on GitHub can deploy fine and
+     still never reach a phone that has seen the old one. Changing the URL is the
+     only thing every layer of cache agrees to respect. Bump it with the build. -->
+<script src="config.js?v=17" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -436,7 +441,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 16 · street view + tap fix · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 17 · config cache-bust + key diagnosis · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -1133,12 +1138,33 @@ function svKey(){
   try{ if(window.DE_CONFIG && DE_CONFIG.streetViewKey) return DE_CONFIG.streetViewKey }catch(e){}
   try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" }
 }
+/* Which of the four ways "there is no key" can happen. They look identical on
+   screen and need completely different fixes, so name them apart. */
+function cfgState(){
+  if(window.CFG_LOAD===0)              return "no-file";   // request failed outright
+  if(typeof window.DE_CONFIG==="undefined") return "no-object"; // loaded, defined nothing
+  if(!window.DE_CONFIG.streetViewKey)  return "blank";     // loaded, key is ""
+  return "ok";
+}
+function cfgWhy(){
+  var s=cfgState();
+  if(s==="ok") return "";
+  if(s==="no-file")
+    return "<b>config.js never loaded.</b> The file is missing from the site, or the "+
+           "browser blocked it. Everything else on the page is fine.";
+  if(s==="no-object")
+    return "<b>config.js loaded but defined nothing.</b> That means a JavaScript error "+
+           "inside it — a missing quote, a stray brace, or two settings blocks fighting "+
+           "each other. It has to be exactly one line: "+
+           "<code>window.DE_CONFIG = { streetViewKey: \"KEY\" };</code>";
+  return "<b>config.js loaded, but the key in it is empty.</b> The file is on the site "+
+         "and valid — there is just nothing between the quotes. Paste the key into "+
+         "config.js on GitHub, or into <i>Street photos</i> below for this device only.";
+}
 function streetPhoto(lat,lon,w,h){
   if(!isFinite(lat)||!isFinite(lon)) return "";
   var k=svKey();
-  if(!k) return '<div class="sv why"><b>No Street View key on this device.</b> '+
-    'Open <i>Street photos</i> below and paste your Google key, or commit it to '+
-    'config.js so every device gets photos.</div>';
+  if(!k) return '<div class="sv why">'+cfgWhy()+'</div>';
   var u="https://maps.googleapis.com/maps/api/streetview?size="+Math.min(640,Math.round(w*2))+
         "x"+Math.min(640,Math.round(h*2))+"&location="+lat+","+lon+
         "&fov=78&pitch=8&radius=70&source=outdoor&return_error_code=true&key="+encodeURIComponent(k);
@@ -1351,6 +1377,26 @@ $("ncSave").onclick=function(){
     $("svStatus").textContent="Removed.";
     if(RAW.length) render(RAW,LABEL,false);
   };
+
+  /* Say where the key is coming from before anyone has to ask. Shows the site
+     key when config.js carries one, the device key when it doesn't, and names
+     the exact failure when neither is there. */
+  (function(){
+    var st=$("svStatus"), s=cfgState();
+    var dev=""; try{ dev=localStorage.getItem("de_svkey")||"" }catch(e){}
+    if(s==="ok"){
+      st.className="status ok";
+      st.innerHTML="Key loaded from <b>config.js</b> — photos work on every device. "+
+                   "Tap <b>Test it</b> to confirm Google accepts it.";
+    }else if(dev){
+      st.className="status ok";
+      st.innerHTML="Using a key saved on <b>this device only</b>. config.js has none, so "+
+                   "other phones will not show photos.";
+    }else{
+      st.className="status err";
+      st.innerHTML=cfgWhy();
+    }
+  })();
 })();
 
 /* ---- county finder --------------------------------------------------------
