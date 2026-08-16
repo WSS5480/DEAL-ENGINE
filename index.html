@@ -154,6 +154,13 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .phbtn{font-size:12px;font-weight:700;color:var(--acc2);text-decoration:none;
  border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--card)}
 .phbtn.dim{color:var(--txt3);font-weight:600}
+/* property-type selector */
+.ptrow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.pt{font-size:12.5px;font-weight:700;padding:8px 11px;border-radius:9px;cursor:pointer;
+ border:1px solid var(--line2);background:var(--card);color:var(--txt2);font-family:inherit}
+.pt.on{background:var(--acc);border-color:var(--acc);color:#16203a}
+.pt[disabled]{opacity:.38}
+#ptHint{font-size:11.5px;color:var(--txt3);margin:-6px 0 12px;line-height:1.5}
 .phcred{font-size:9.5px;color:var(--txt3);margin-left:auto;white-space:nowrap}
 
 /* installed to the home screen: no browser chrome, so we owe the notch its space */
@@ -279,7 +286,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=19" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=20" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -316,7 +323,20 @@ label.f.sm2 .inp{padding:8px 9px}
 
 <div class="card">
   <h3>Buy box</h3>
-  <div class="grid g3">
+  <div class="ptrow" id="ptRow">
+    <button class="pt on" data-t="house">Houses</button>
+    <button class="pt" data-t="mobile">Mobile homes</button>
+    <button class="pt" data-t="multi">Multifamily</button>
+    <button class="pt" data-t="land">Lots &amp; land</button>
+    <button class="pt" data-t="comm">Commercial</button>
+  </div>
+  <p id="ptHint"></p>
+  <div class="grid g3" id="landBox" style="display:none">
+    <label class="f"><span>Min acres</span><input class="inp" type="number" step="0.01" id="f_acmin" value="0.08"></label>
+    <label class="f"><span>Max acres</span><input class="inp" type="number" step="0.01" id="f_acmax" value="20"></label>
+    <label class="f pre"><span>$ per acre you'll pay</span><input class="inp" type="number" id="f_perac" value="45000"></label>
+  </div>
+  <div class="grid g3" id="bbGrid">
     <label class="f"><span>Min sq ft</span><input class="inp" type="number" id="f_sqmin" value="1250"></label>
     <label class="f"><span>Max sq ft</span><input class="inp" type="number" id="f_sqmax" value="1700"></label>
     <label class="f"><span>Built after</span><input class="inp" type="number" id="f_yrmin" value="1965"></label>
@@ -464,7 +484,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 19 · Test it now saves the key · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 20 · property types: houses, mobile, multifamily, land, commercial · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -516,7 +536,105 @@ function score(p,o){
   if(p.cut>0.55) s*=0.35;                  // nobody signs that
   return clamp(s,0,100);
 }
+/* ---- land ------------------------------------------------------------------
+   No building, so nothing about the flip model applies. You told the app what
+   an acre is worth to you; the offer is that rate times the dirt. Everything
+   the ranking cares about is then how far under the county's own opinion of
+   the land that number sits, and whether the owner is somebody who sells. */
+function analyseLand(r,o){
+  var ac=nz(r.acres);
+  if(ac<=0) ac=nz(r.landsqft)/43560;
+  if(ac<=0) return null;
+  var rate=nz(o.perac);
+  var offer=Math.round(ac*rate);
+  /* the county's land value is the anchor \u2014 for a vacant parcel the market
+     value IS the land value, but on an improved-but-teardown lot they differ,
+     so prefer the explicit land number when the roll carries one */
+  var anchor=nz(r.landval)||nz(r.cad);
+  var cadAc=ac>0?anchor/ac:0;
+  var p={address:r.address||"\u2014",city:r.city||"",zip:r.zip||"",sqft:0,year:nz(r.year)||"",
+    acres:ac, perac:rate, cadPerAcre:cadAc,
+    arv:0,rehab:0,cad:nz(r.cad),landval:nz(r.landval),tax:anchor*pct(o.taxrate),
+    offer:offer,rule:offer,backed:offer,
+    spread:anchor-offer, cut:anchor>0?(anchor-offer)/anchor:0,
+    profit:anchor-offer, margin:anchor>0?(anchor-offer)/anchor:0,
+    cashIn:offer, rent:0, cfMo:0, anchor:anchor,
+    owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
+    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,kind:"land"};
+  p.flag=flagFor(p);
+  var sc=0;
+  sc+=clamp(1-(p.cut-0.05)/0.55,0,1)*40;                       // under the county's number
+  sc+=(String(p.absentee).toUpperCase()==="Y"?1:0)*22;
+  sc+=(p.outoftown?1:0)*10;
+  sc+=clamp((cadAc>0?(cadAc-rate)/cadAc:0)/0.5,0,1)*18;        // your rate vs the county's
+  sc+=clamp(1-Math.abs(Math.log(Math.max(ac,0.01)/0.25))/2.5,0,1)*10;  // buildable-lot sized
+  if(p.cut<0) sc*=0.35;                                        // you'd be paying over
+  p.score=clamp(sc,0,100);
+  p.flags=[];
+  if(p.cut<0) p.flags.push("your rate is above the county's land value");
+  if(ac>5) p.flags.push("acreage \u2014 check access, utilities and floodplain");
+  if(nz(r.imprval)>1000) p.flags.push("something is standing on it \u2014 demo cost not counted");
+  p.good=[];
+  if(String(p.absentee).toUpperCase()==="Y") p.good.push("no homestead exemption");
+  if(p.outoftown) p.good.push("owner mails to "+(p.mailcity||"another town"));
+  if(!p.good.length) p.good=null;
+  return p;
+}
+
+/* ---- commercial ------------------------------------------------------------
+   You asked for no numbers to type in, so the benchmark is built out of the
+   search itself: the median market value per building square foot across every
+   commercial parcel that came back for this city. That is the roll's own
+   opinion of the going rate, and it costs nothing to compute.
+
+   It is emphatically not a cap rate. Texas records no sale prices and no rents,
+   so a true cap rate cannot come from public data \u2014 it needs a paid feed.
+   What this does give you is which buildings the county values well below what
+   comparable buildings in the same market carry. */
+function analyseComm(r,o){
+  var sqft=nz(r.sqft); if(sqft<=0) return null;
+  var bench=nz(o.bench);
+  if(bench<=0) return null;
+  var value=sqft*bench;
+  var rehab=nz(r.rehab)||sqft*nz(o.rehabpsf)*0.6;   // commercial fit-out runs lighter per sf
+  var cad=nz(r.cad);
+  var offer=Math.round(value*pct(o.rule)-rehab);
+  var anchor=cad||value*0.8;
+  var psf=sqft>0?cad/sqft:0;
+  var p={address:r.address||"\u2014",city:r.city||"",zip:r.zip||"",sqft:sqft,year:nz(r.year)||"",
+    arv:value,rehab:rehab,cad:cad,tax:anchor*pct(o.taxrate),
+    offer:offer,rule:offer,backed:offer,bench:bench,psf:psf,
+    acres:nz(r.acres),
+    spread:anchor-offer,cut:anchor>0?(anchor-offer)/anchor:0,
+    profit:value-offer-rehab,margin:value>0?(value-offer-rehab)/value:0,
+    cashIn:Math.max(0,offer)*pct(o.down),rent:0,cfMo:0,anchor:anchor,
+    owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
+    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,kind:"comm"};
+  p.flag=flagFor(p);
+  var sc=0;
+  sc+=clamp(1-(p.cut-0.10)/0.50,0,1)*30;
+  sc+=clamp((bench>0?(bench-psf)/bench:0)/0.45,0,1)*30;   // cheap per sf against the market
+  sc+=(String(p.absentee).toUpperCase()==="Y"?1:0)*14;
+  sc+=(p.outoftown?1:0)*8;
+  sc+=clamp(1-(rehab/Math.max(1,value))/0.30,0,1)*18;
+  if(p.offer<=0) sc=0;
+  p.score=clamp(sc,0,100);
+  p.flags=[];
+  if(psf>bench*1.25) p.flags.push("county values it above the market rate per sq ft");
+  if(p.offer<=0) p.flags.push("no offer works at your rule of thumb");
+  if(sqft<1200) p.flags.push("small building \u2014 benchmark is noisy down here");
+  p.good=[];
+  if(psf&&psf<bench*0.75) p.good.push("valued "+Math.round((1-psf/bench)*100)+"% under the market rate per sq ft");
+  if(p.outoftown) p.good.push("owner mails to "+(p.mailcity||"another town"));
+  if(!p.good.length) p.good=null;
+  return p;
+}
+
 function analyse(r,o){
+  if(o&&o.model==="land") return analyseLand(r,o);
+  if(o&&o.model==="comm") return analyseComm(r,o);
   var sqft=nz(r.sqft); if(sqft<=0) return null;
   var arv=nz(r.arv)||sqft*nz(o.arvpsf);
   var rehab=nz(r.rehab)||sqft*nz(o.rehabpsf);
@@ -559,10 +677,22 @@ function opts(){
     rule:$("f_rule").value,hold:$("f_hold").value,rate:$("f_rate").value,points:$("f_points").value,
     down:$("f_down").value,buyc:$("f_buyc").value,sellc:$("f_sellc").value,carry:$("f_carry").value,
     taxrate:$("f_taxrate").value,rentpsf:$("f_rentpsf").value,rehabmax:$("f_rehabmax").value,
-    arvmin:$("f_arvmin").value,arvmax:$("f_arvmax").value};
+    arvmin:$("f_arvmin").value,arvmax:$("f_arvmax").value,
+    pt:PT, model:(PTYPE[PT]||PTYPE.house).model,
+    perac:$("f_perac").value, acmin:$("f_acmin").value, acmax:$("f_acmax").value,
+    bench:0};
 }
 function inBox(r){
   var sq=nz(r.sqft), yr=nz(r.year);
+  if(PT==="land"){
+    /* a vacant lot has no living area and no year built \u2014 judging it by the
+       house buy box is how land quietly disappeared from every search */
+    var ac=nz(r.acres);
+    if(ac&&(ac<nz($("f_acmin").value)||ac>nz($("f_acmax").value))) return false;
+    var zl=$("f_zips").value.split(",").map(function(z){return z.trim()}).filter(Boolean);
+    if(zl.length&&r.zip&&zl.indexOf(String(r.zip).trim())<0) return false;
+    return true;
+  }
   if(sq<nz($("f_sqmin").value)||sq>nz($("f_sqmax").value)) return false;
   if(yr&&(yr<nz($("f_yrmin").value)||yr>nz($("f_yrmax").value))) return false;
   var zips=$("f_zips").value.split(",").map(function(z){return z.trim()}).filter(Boolean);
@@ -674,6 +804,49 @@ function reseed(p){
     pid:p.pid,geo:p.geo,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon};
 }
 
+/* The eight-box grid means different things depending on what you're buying.
+   A lot has no ARV and no rent; a warehouse has no rental cash flow worth
+   quoting off a house model. Show the numbers that exist. */
+function kvBlock(p){
+  var box=function(k,v,cls){
+    return '<div><div class="k">'+k+'</div><div class="v'+(cls?" "+cls:"")+'">'+v+'</div></div>';
+  };
+  if(p.kind==="land"){
+    return '<div class="kv">'+
+      box("Acres",p.acres.toFixed(2))+
+      box("Your $/acre",money(p.perac))+
+      box("County land value",p.anchor?money(p.anchor):"\u2014")+
+      box("County $/acre",p.cadPerAcre?money(p.cadPerAcre):"\u2014")+
+      box("Under county by",p.anchor?Math.round(p.cut*100)+"%":"\u2014",p.cut>0?"pos":"neg")+
+      box("Spread",money(p.spread),p.spread>0?"pos":"neg")+
+      box("Cash needed",money(p.cashIn))+
+      box("Total value",p.cad?money(p.cad):"\u2014")+
+      '</div>';
+  }
+  if(p.kind==="comm"){
+    return '<div class="kv">'+
+      box("Building",Math.round(p.sqft).toLocaleString()+" sf")+
+      box("County $/sf",p.psf?money(p.psf):"\u2014")+
+      box("Market $/sf",money(p.bench))+
+      box("Value at market",money(p.arv))+
+      box("County value",p.cad?money(p.cad):"\u2014")+
+      box("Cut needed",p.anchor?Math.round(p.cut*100)+"%":"\u2014")+
+      box("Fit-out",money(p.rehab))+
+      box("Lot",p.acres?p.acres.toFixed(2)+" ac":"\u2014")+
+      '</div>';
+  }
+  return '<div class="kv">'+
+    box("ARV",money(p.arv))+
+    box("Rehab",money(p.rehab))+
+    box("County value",p.cad?money(p.cad):"\u2014")+
+    box("Cut needed",p.anchor?Math.round(p.cut*100)+"%":"\u2014")+
+    box("Flip profit",money(p.profit),p.profit>0?"pos":"neg")+
+    box("Cash needed",money(p.cashIn))+
+    box("Rent est.",money(p.rent))+
+    box("Rental CF",money(p.cfMo),p.cfMo>0?"pos":"neg")+
+    '</div>';
+}
+
 /* ---- render ---- */
 var LIST=[];
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
@@ -693,6 +866,15 @@ function activeFilters(){
 function render(rows,label,jump){
   var o=opts();
   RAW=rows; LABEL=label;
+  /* the commercial model needs one number that only exists once the whole set
+     is in hand: the median $ per building sq ft across this search. Median, not
+     mean \u2014 one 90,000 sf distribution centre would drag an average into
+     nonsense. */
+  if(o.model==="comm"){
+    var psfs=rows.map(function(r){var q=nz(r.sqft);return q>0?nz(r.cad)/q:0})
+                 .filter(function(v){return v>5&&v<600}).sort(function(a,b){return a-b});
+    o.bench=psfs.length?psfs[Math.floor(psfs.length/2)]:0;
+  }
   var all=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
   var on=activeFilters();
   /* every ticked box must hold, not any of them — otherwise "for sale" plus
@@ -741,7 +923,10 @@ function render(rows,label,jump){
       '<div class="dmain"><div class="addr"><span class="at">'+p.address+'</span>'+
         (p.flag&&p.flag.sale?'<span class="fl sale">FOR SALE</span>':'')+
         (p.flag&&p.flag.tax?'<span class="fl tax">TAX SALE</span>':'')+'</div>'+
-      '<div class="sub">'+Math.round(p.sqft).toLocaleString()+' sf'+(p.year?" · "+p.year:"")+(p.zip?" · "+p.zip:"")+'</div>'+
+      '<div class="sub">'+(p.kind==="land"
+          ? p.acres.toFixed(2)+' acres'
+          : Math.round(p.sqft).toLocaleString()+' sf')+
+        (p.year?" \u00b7 "+p.year:"")+(p.zip?" \u00b7 "+p.zip:"")+'</div>'+
       '<div class="bar"><i style="width:'+Math.max(2,p.score)+'%;background:var(--'+cls+')"></i></div></div>'+
       '<div class="dright"><div class="off" style="color:var(--'+cls+')">'+(p.offer>0?money(p.offer):"no deal")+'</div>'+
       '<div class="sc '+cls+'">'+Math.round(p.score)+' / 100</div></div></div>'+
@@ -752,16 +937,7 @@ function render(rows,label,jump){
             '<a class="phbtn" href="'+mapLink(p.lat,p.lon)+'" target="_blank" rel="noopener">Map \u2197</a>'+
             '<span class="phcred">Imagery \u00a9 Esri, Maxar</span>'+
           '</div></div>':'')+
-        '<div class="kv">'+
-        '<div><div class="k">ARV</div><div class="v">'+money(p.arv)+'</div></div>'+
-        '<div><div class="k">Rehab</div><div class="v">'+money(p.rehab)+'</div></div>'+
-        '<div><div class="k">County value</div><div class="v">'+(p.cad?money(p.cad):"—")+'</div></div>'+
-        '<div><div class="k">Cut needed</div><div class="v">'+(p.anchor?Math.round(p.cut*100)+"%":"—")+'</div></div>'+
-        '<div><div class="k">Flip profit</div><div class="v '+(p.profit>0?"pos":"neg")+'">'+money(p.profit)+'</div></div>'+
-        '<div><div class="k">Cash needed</div><div class="v">'+money(p.cashIn)+'</div></div>'+
-        '<div><div class="k">Rent est.</div><div class="v">'+money(p.rent)+'</div></div>'+
-        '<div><div class="k">Rental CF</div><div class="v '+(p.cfMo>0?"pos":"neg")+'">'+money(p.cfMo)+'</div></div>'+
-        '</div>'+
+        kvBlock(p)+
         (p.flag&&p.flag.sale?
           '<div class="note warn"><b>Listed for sale at '+money(p.flag.sale.price)+'</b>'+
           (p.flag.sale.days?' · '+p.flag.sale.days+' days on market':'')+
@@ -780,8 +956,13 @@ function render(rows,label,jump){
           ' The county is selling this for back taxes. Different game from a mailer — you bid at '+
           'auction, usually without getting inside, and you take it with whatever is on it. '+
           'A past sale date means it went unsold and rolls to the next one.</div>':'')+
-        '<div class="led"><span class="l">70% rule</span><b>'+money(p.rule)+'</b></div>'+
-        '<div class="led"><span class="l">Profit-backed</span><b>'+money(p.backed)+'</b></div>'+
+        (p.kind==="land"
+          ? '<div class="led"><span class="l">'+p.acres.toFixed(2)+' acres \u00d7 '+money(p.perac)+'</span><b>'+money(p.offer)+'</b></div>'
+          : p.kind==="comm"
+          ? '<div class="led"><span class="l">'+Math.round(p.sqft).toLocaleString()+' sf \u00d7 '+money(p.bench)+'/sf</span><b>'+money(p.arv)+'</b></div>'+
+            '<div class="led"><span class="l">less fit-out</span><b>'+money(p.rehab)+'</b></div>'
+          : '<div class="led"><span class="l">70% rule</span><b>'+money(p.rule)+'</b></div>'+
+            '<div class="led"><span class="l">Profit-backed</span><b>'+money(p.backed)+'</b></div>')+
         '<div class="led tot"><span class="l">Walk in at</span><b class="'+(p.offer>0?"pos":"neg")+'">'+money(p.offer)+'</b></div>'+
         (p.owner?'<div class="led" style="margin-top:8px"><span class="l">Owner</span><b style="font-family:inherit;font-weight:600">'+p.owner+'</b></div>':"")+
         (p.mail?'<div class="led"><span class="l">Mail to</span><b style="font-family:inherit;font-weight:600">'+p.mail+'</b></div>':"")+
@@ -914,6 +1095,27 @@ function cameronFields(upper){
           geo:n("geo_id","geoID"), unit:"city"};
 }
 
+/* ---- what you're shopping for -------------------------------------------
+ * Texas Comptroller state category codes, which every CAD reports against.
+ * They are NOT consistent in depth between counties: Hidalgo splits single
+ * family into A1 and mobile-home-on-owned-land into A2, while Cameron codes
+ * the whole A category as plain 'A'. So the code list lives per source, and a
+ * type a county cannot express simply greys out rather than silently returning
+ * one row or the wrong thing.
+ *
+ * M1/M3 (mobile home on leased land) are deliberately absent from `mobile`.
+ * You would be buying the box and renting the dirt, which is a different
+ * business and not what this app underwrites.
+ */
+var PTYPE={
+  house: {label:"Houses",       model:"sqft", hint:"Single-family, the classic flip or rental."},
+  mobile:{label:"Mobile homes", model:"sqft", hint:"Manufactured homes on land you would own. Homes on leased park land are excluded on purpose \u2014 you would own the box, not the dirt."},
+  multi: {label:"Multifamily",  model:"sqft", hint:"Duplex through apartments. Underwritten on building square footage, so a fourplex reads like one large house \u2014 sanity-check the unit count on the county record."},
+  land:  {label:"Lots & land",  model:"land", hint:"Vacant lots and acreage. No building, so the offer is simply your $ per acre \u00d7 the parcel size, ranked against what the county says the dirt is worth."},
+  comm:  {label:"Commercial",   model:"comm", hint:"Retail, office, warehouse. Valued against the median $ per building sq ft of everything else in this same search \u2014 no cap rate to type in, the benchmark comes out of the roll itself."}
+};
+var PT="house";
+
 var SRC={
  "TX|HIDALGO":{
    q:"https://services9.arcgis.com/dwMDP55HTfoj4n1c/arcgis/rest/services/HCAD_PARCELS_2026/FeatureServer/1/query",
@@ -923,6 +1125,11 @@ var SRC={
       cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",geo:"geoID",unit:"taxingUnits"},
    link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
    classes:"'A1','A2'",
+   /* verified against the distinct stateCd values actually present in the 2026
+      roll: A1 A2 A6 B1 B2 C1 C2 D1 D2 D9 E E1 E2 E3 F1 F5 G3 J1-J7 M1 M3 O1 */
+   types:{house:"'A1','A6'", mobile:"'A2'", multi:"'B1','B2'",
+          land:"'C1','C2','D1','D2','D9','E','E1','E2','E3','O1'", comm:"'F1','F5'"},
+   f2:{acres:"landTotalAcres", landval:"landValue", imprval:"improvementValue"},
    order:"marketValue ASC",
    centroid:true,
    /* City is not reliable inside the situs string here \u2014 about a quarter of
@@ -940,6 +1147,9 @@ var SRC={
    label:"Cameron CAD 2026 roll",
    f:cameronFields(false),
    classes:"'A'",   /* Cameron codes single family 'A'. Asking for 'A1' returns one row. */
+   /* one letter per category here, so houses and mobile homes are the same
+      code and cannot be told apart \u2014 `mobile` is left out rather than faked */
+   types:{house:"'A'", multi:"'B'", land:"'C','D','E'", comm:"'F'"},
    order:"market ASC",
    centroid:true,
    cities:CAMERON_CITIES,
@@ -947,6 +1157,7 @@ var SRC={
      q:"https://services2.arcgis.com/6oaLMZEZlktbQpyi/arcgis/rest/services/CCAD_Parcels_View/FeatureServer/0/query",
      label:"Cameron CAD 2025 roll (Esri mirror)",
      f:cameronFields(true), classes:"'A'", order:"market ASC", centroid:true,
+     types:{house:"'A'", multi:"'B'", land:"'C','D','E'", comm:"'F'"},
      cities:CAMERON_CITIES
    }
  }
@@ -1038,12 +1249,24 @@ async function runLive(quiet){
 
     /* ---- one pull, from one endpoint ---- */
     async function pull(source){
-      var G=source.f||F, out=[];
+      var G=source.f||F, G2=source.f2||{}, out=[];
       var w=[];
-      if(G.sqft) w.push(G.sqft+" BETWEEN "+nz($("f_sqmin").value)+" AND "+nz($("f_sqmax").value));
-      if(G.year) w.push(G.year+" BETWEEN "+nz($("f_yrmin").value)+" AND "+nz($("f_yrmax").value));
-      if(G.cad)  w.push(G.cad+" BETWEEN 15000 AND "+Math.round(nz($("f_arvmax").value)));
-      if(source.classes&&G.cls) w.push(G.cls+" IN ("+source.classes+")");
+      var land=(PT==="land");
+      /* Which class codes this search is actually asking for. A source with no
+         `types` map falls back to whatever single class list it was born with,
+         which keeps hand-added counties working unchanged. */
+      var cls=(source.types&&source.types[PT])||(PT==="house"?source.classes:null);
+      if(!land){
+        if(G.sqft) w.push(G.sqft+" BETWEEN "+nz($("f_sqmin").value)+" AND "+nz($("f_sqmax").value));
+        if(G.year) w.push(G.year+" BETWEEN "+nz($("f_yrmin").value)+" AND "+nz($("f_yrmax").value));
+        if(G.cad)  w.push(G.cad+" BETWEEN 15000 AND "+Math.round(nz($("f_arvmax").value)));
+      }else{
+        /* lots have neither living area nor a year built; asking for them by
+           those columns returns nothing at all */
+        if(G2.acres) w.push(G2.acres+" BETWEEN "+nz($("f_acmin").value)+" AND "+nz($("f_acmax").value));
+        if(G.cad)    w.push(G.cad+" > 500");
+      }
+      if(cls&&G.cls) w.push(G.cls+" IN ("+cls+")");
       var code=null;
       if(city&&source.cities) code=source.cities[city.toUpperCase().trim()];
       if(code&&G.unit) w.push(G.unit+" LIKE '%"+code+"%'");
@@ -1054,6 +1277,7 @@ async function runLive(quiet){
       var loose=!!(city&&source.cities&&!code);
 
       var outF=[];
+      for(var k2 in G2){ if(G2[k2]) outF.push(G2[k2]); }
       for(var kk in G){
         var v=G[kk];
         if(!v) continue;
@@ -1096,6 +1320,10 @@ async function runLive(quiet){
             address:titleCase(sp.addr),city:titleCase(pcity)||city,
             zip:G.zip?String(a[G.zip]||"").slice(0,5):(G.mailzip&&!away?String(a[G.mailzip]||"").slice(0,5):""),
             sqft:nz(a[G.sqft]),year:nz(a[G.year]),cad:nz(a[G.cad]),
+            acres:G2.acres?nz(a[G2.acres]):0,
+            landsqft:G2.landsqft?nz(a[G2.landsqft]):0,
+            landval:G2.landval?nz(a[G2.landval]):0,
+            imprval:G2.imprval?nz(a[G2.imprval]):0,
             owner:titleCase(a[G.owner]||""),
             mail:titleCase([a[G.mail],mcity,mst].filter(Boolean).join(", ")),
             mailcity:titleCase(mcity),
@@ -1135,7 +1363,7 @@ async function runLive(quiet){
             " \u00b7 "+kept.length.toLocaleString()+" fit your buy box."+
             (rows.capped?" That is the "+(PAGES*1000).toLocaleString()+" cheapest that fit \u2014 tighten the buy box to see further up the market.":"")+
             (rows.loose?" No taxing-unit code on file for "+titleCase(city)+", so this matched on address text \u2014 it can miss parcels whose record omits the city.":""),"ok");
-    render(kept.length?kept:usable,(city?titleCase(city):county+" County")+" · live county records",true);
+    render(kept.length?kept:usable,(city?titleCase(city):county+" County")+" · "+(PTYPE[PT]||PTYPE.house).label.toLowerCase()+" · live county records",true);
     return true;
   }catch(err){
     var m=String(err.message||err);
@@ -1772,7 +2000,69 @@ FILTERS.forEach(function(f){
 /* the where-fields change what you search, not how it scores — they must not
    re-rank a list that is already on screen */
 var NORERANK={f_county:1,f_city:1,f_countyOther:1,f_cityOther:1,f_zips:1,f_state:1,
-  f_layer:1,sv_key:1,nc_state:1,nc_county:1,nc_url:1,nc_cls:1,nc_label:1,csvBox:1};
+  f_layer:1,sv_key:1,nc_state:1,nc_county:1,nc_url:1,nc_cls:1,nc_label:1,csvBox:1,
+  f_acmin:1,f_acmax:1};
+
+/* ---- what you're shopping for ---------------------------------------------
+   Switching type changes three things at once: which class codes get asked for,
+   which model underwrites the result, and which inputs are on screen. It also
+   throws the current list away, because a list of houses ranked by flip profit
+   means nothing the moment you say "actually, lots". */
+function ptSupported(t){
+  var src=currentSource();
+  if(!src) return true;                    // unknown county: let them try
+  if(src.types) return !!src.types[t];
+  return t==="house";                      // a source with one class list only does houses
+}
+function currentSource(){
+  try{
+    var st=$("f_state").value, co=$("f_county").value;
+    if(co==="__other") co=$("f_countyOther").value;
+    var k=(st+"|"+String(co||"").toUpperCase().trim());
+    return SRC[k]||null;
+  }catch(e){ return null }
+}
+function drawPT(){
+  var src=currentSource();
+  [].forEach.call($("ptRow").children,function(b){
+    var t=b.dataset.t, okT=ptSupported(t);
+    b.disabled=!okT;
+    b.classList.toggle("on",t===PT);
+    b.title=okT?"":"This county's records don't separate that category";
+  });
+  var d=PTYPE[PT]||PTYPE.house;
+  var extra="";
+  if(src&&src.types&&!src.types.mobile&&PT==="house")
+    extra=" This county codes houses and mobile homes with the same letter, so both are in this list.";
+  $("ptHint").innerHTML=d.hint+extra;
+  $("landBox").style.display = PT==="land"?"grid":"none";
+  $("bbGrid").style.display  = PT==="land"?"none":"grid";
+}
+function setPT(t){
+  if(!PTYPE[t]||!ptSupported(t)) return;
+  if(t===PT) return;
+  PT=t;
+  drawPT();
+  clearList();                 // a stale ranking under a new model is a lie
+  setStatSafe();
+}
+function setStatSafe(){
+  try{ $("liveStatus").className="status";
+       $("liveStatus").textContent="Set to "+(PTYPE[PT].label)+". Hit Find deals."; }catch(e){}
+}
+$("ptRow").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-t]"); if(!b||b.disabled) return;
+  setPT(b.dataset.t);
+});
+["f_state","f_county","f_countyOther"].forEach(function(id){
+  var el=$(id); if(!el) return;
+  el.addEventListener("change",function(){
+    /* a county that can't express the current type shouldn't leave it selected */
+    if(!ptSupported(PT)) { PT="house"; clearList(); }
+    drawPT();
+  });
+});
+drawPT();
 document.querySelectorAll(".inp").forEach(function(i){
   if(NORERANK[i.id]||/^ncf_/.test(i.id)) return;
   i.addEventListener("change",function(){
