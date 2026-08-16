@@ -155,6 +155,7 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--card)}
 .phbtn.dim{color:var(--txt3);font-weight:600}
 /* property-type selector */
+.oneaddr{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
 .ptrow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .pt{font-size:12.5px;font-weight:700;padding:8px 11px;border-radius:9px;cursor:pointer;
  border:1px solid var(--line2);background:var(--card);color:var(--txt2);font-family:inherit}
@@ -286,7 +287,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=22" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=23" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -392,6 +393,20 @@ label.f.sm2 .inp{padding:8px 9px}
       <button class="btn ghost sm" id="btnLayer">Set layer manually</button>
     </div>
     <div class="status" id="liveStatus"></div>
+
+    <div class="oneaddr">
+      <div class="fh">Score one address</div>
+      <input class="inp" id="f_one" placeholder="1806 Ash Ave" autocomplete="off"
+             autocapitalize="characters" enterkeyhint="search">
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" id="btnOne">Score this address</button>
+      </div>
+      <p class="hint">Uses the county and city picked above. Street number and name is
+        enough — skip the suffix if nothing comes back. It reads the same appraisal
+        record the ranked list uses, works out what kind of property it is from the
+        county's own class code, and underwrites it with your numbers for that type.</p>
+      <div class="status" id="oneStatus"></div>
+    </div>
     <details class="acc" id="layerBox" style="display:none"><summary>Parcel layer URL</summary><div class="bd">
       <input class="inp" id="f_layer" placeholder="https://…/FeatureServer/0/query">
       <p style="font-size:12px;color:var(--txt3);margin:8px 0 0;line-height:1.5">
@@ -489,7 +504,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 22 · Cameron commercial codes + numbers per type · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 23 · score one address · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -871,7 +886,7 @@ function kvBlock(p){
 }
 
 /* ---- render ---- */
-var LIST=[];
+var LIST=[], RENDO=null;
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
 var RAW=[], LABEL="";
 var FILTERS=[
@@ -886,9 +901,12 @@ var FILTERS=[
 function activeFilters(){
   return FILTERS.filter(function(f){ var e=$(f[0]); return e&&e.checked });
 }
-function render(rows,label,jump){
-  var o=opts();
-  RAW=rows; LABEL=label;
+function render(rows,label,jump,oOverride){
+  /* oOverride lets the single-address lookup underwrite one parcel with the
+     model and numbers for ITS type, without disturbing the type the ranked
+     list is set to. */
+  var o=oOverride||opts();
+  RAW=rows; LABEL=label; RENDO=oOverride||null;
   /* the commercial model needs one number that only exists once the whole set
      is in hand: the median $ per building sq ft across this search. Median, not
      mean \u2014 one 90,000 sf distribution centre would drag an average into
@@ -1635,7 +1653,7 @@ $("ncSave").onclick=function(){
     try{ localStorage.setItem("de_svkey",v) }catch(e){}
     $("svStatus").className="status ok";
     $("svStatus").textContent = v ? "Saved. Open any property to see it." : "Cleared.";
-    if(RAW.length) render(RAW,LABEL,false);
+    if(RAW.length) render(RAW,LABEL,false,RENDO);
   };
 
   /* Google answers metadata requests free and unlimited, and its error_message
@@ -1654,7 +1672,7 @@ $("ncSave").onclick=function(){
       var kept=false;
       if(j.status==="OK"||j.status==="ZERO_RESULTS"){
         try{ localStorage.setItem("de_svkey",k); kept=true }catch(e){}
-        if(RAW.length) render(RAW,LABEL,false);
+        if(RAW.length) render(RAW,LABEL,false,RENDO);
       }
       var savedNote=kept?" <b>Saved to this device.</b>":"";
       if(j.status==="OK"){
@@ -1686,7 +1704,7 @@ $("ncSave").onclick=function(){
     try{ localStorage.removeItem("de_svkey") }catch(e){}
     $("sv_key").value=""; $("svStatus").className="status";
     $("svStatus").textContent="Removed.";
-    if(RAW.length) render(RAW,LABEL,false);
+    if(RAW.length) render(RAW,LABEL,false,RENDO);
   };
 
   /* Say where the key is coming from before anyone has to ask. Shows the site
@@ -1713,6 +1731,137 @@ $("ncSave").onclick=function(){
     }
   })();
 })();
+
+/* ---- score one address ----------------------------------------------------
+ * A ranked list answers "what should I look at". This answers "what about THIS
+ * one" — the question you get standing in front of a house, or when somebody
+ * texts you an address.
+ *
+ * Deliberately different from the ranked search in three ways:
+ *   no buy box       you asked about this house, not about houses like it
+ *   no class filter  so it finds the lot and the warehouse too
+ *   type detected    from the county's own class code, then underwritten with
+ *                    YOUR numbers for that type — ask about a vacant lot while
+ *                    the app is set to Houses and it still gets land math
+ */
+var SUFFIXES=/^(ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|LN|LANE|BLVD|BOULEVARD|CT|COURT|CIR|CIRCLE|PL|PLACE|HWY|HIGHWAY|TRL|TRAIL|WAY|PKWY|PARKWAY|N|S|E|W|NORTH|SOUTH|EAST|WEST|APT|UNIT|STE)$/;
+function addrTokens(q){
+  var t=String(q||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ").split(/\s+/).filter(Boolean);
+  var keep=t.filter(function(v,i){ return i===0 || !SUFFIXES.test(v) });
+  return keep.length?keep:t;
+}
+/* which of this county's type buckets a class code belongs to */
+function typeForClass(source,code){
+  var c="'"+String(code||"").toUpperCase().trim()+"'";
+  var m=source&&source.types;
+  if(!m) return null;
+  for(var k in m){
+    var list=String(m[k]||"").split(",").map(function(v){return v.trim().toUpperCase()});
+    if(list.indexOf(c)>=0) return k;
+  }
+  return null;
+}
+/* run the model for `t` with the numbers saved against `t`, whatever is on
+   screen right now — otherwise a lot gets priced with house $/sq ft */
+function optsFor(t){
+  var o=opts();
+  o.pt=t; o.model=(PTYPE[t]||PTYPE.house).model;
+  var n=NUM[t]||{};
+  if(n.f_arvpsf!==undefined&&n.f_arvpsf!=="")   o.arvpsf=n.f_arvpsf;
+  if(n.f_rehabpsf!==undefined&&n.f_rehabpsf!=="")o.rehabpsf=n.f_rehabpsf;
+  if(n.f_target!==undefined&&n.f_target!=="")    o.target=n.f_target;
+  if(n.f_rehabmax!==undefined&&n.f_rehabmax!=="")o.rehabmax=n.f_rehabmax;
+  if(n.f_rule!==undefined&&n.f_rule!=="")        o.rule=n.f_rule;
+  if(n.f_hold!==undefined&&n.f_hold!=="")        o.hold=n.f_hold;
+  return o;
+}
+$("btnOne").onclick=async function(){
+  var st=$("oneStatus");
+  var say=function(h,cls){ st.className="status"+(cls?" "+cls:""); st.innerHTML=h; };
+  var q=$("f_one").value.trim();
+  if(!q){ say("Type an address first.","err"); return }
+
+  var src=currentSource();
+  if(!src){ say("Pick a wired-up county above first \u2014 Hidalgo or Cameron. "+
+                "A county you added yourself works too.","err"); return }
+  var G=src.f||{}, G2=src.f2||{};
+  if(!G.addr){ say("That county's layer has no address column.","err"); return }
+
+  var toks=addrTokens(q);
+  var w=["UPPER("+G.addr+") LIKE '%"+esc(toks.join("%"))+"%'"];
+  var outF=[];
+  for(var k in G){ var v=G[k]; if(!v) continue;
+    if(Object.prototype.toString.call(v)==="[object Array]") outF=outF.concat(v); else outF.push(v); }
+  for(var k2 in G2){ if(G2[k2]) outF.push(G2[k2]); }
+
+  say('<span class="spin"></span>Looking up '+toks.join(" ")+' in '+(src.label||"the county roll")+'\u2026');
+  var qp={where:w.join(" AND "),outFields:outF.join(","),returnGeometry:"false",
+          resultRecordCount:"25",f:"json"};
+  if(src.centroid){ qp.returnCentroid="true"; qp.outSR="4326"; }
+
+  var r;
+  try{ r=await getJSON(src.q+"?"+new URLSearchParams(qp)); }
+  catch(e){ say("The county server didn't answer: "+(e.message||e),"err"); return }
+
+  var fs=(r&&r.features)||[];
+  if(!fs.length){
+    say("<b>No parcel matched.</b> The county stores its own spelling, so try just the "+
+        "number and street name \u2014 <i>"+toks.slice(0,2).join(" ")+"</i> \u2014 and drop "+
+        "any unit number. If it's in a different city, change the city above (or set it to "+
+        "any city).","err");
+    return;
+  }
+
+  var rows=fs.map(function(ft){
+    var a=ft.attributes||{}, ct=ft.centroid||{};
+    var sp=splitSitus(a[G.addr]);
+    if(G.addrParts){
+      var bits=G.addrParts.map(function(kk){return String(a[kk]==null?"":a[kk]).trim()})
+                          .filter(function(v){return v&&v!=="0"});
+      if(bits.length) sp={addr:bits.join(" ").replace(/\s+/g," "),city:""};
+    }
+    var mcity=G.mailcity?String(a[G.mailcity]||"").trim():"";
+    var pcity=(G.city&&a[G.city])?String(a[G.city]).trim():sp.city;
+    var ex=G.exempt?String(a[G.exempt]||"").trim():"";
+    var pid=G.pid?a[G.pid]:"";
+    return {
+      lon:isFinite(ct.x)?ct.x:null, lat:isFinite(ct.y)?ct.y:null,
+      address:titleCase(sp.addr), city:titleCase(pcity),
+      zip:G.zip?String(a[G.zip]||"").slice(0,5):"",
+      sqft:nz(a[G.sqft]), year:nz(a[G.year]), cad:nz(a[G.cad]),
+      acres:G2.acres?nz(a[G2.acres]):0, landval:G2.landval?nz(a[G2.landval]):0,
+      imprval:G2.imprval?nz(a[G2.imprval]):0,
+      cls:G.cls?String(a[G.cls]||"").trim():"",
+      owner:titleCase(a[G.owner]||""),
+      mail:titleCase([a[G.mail],mcity,G.mailstate?a[G.mailstate]:""].filter(Boolean).join(", ")),
+      mailcity:titleCase(mcity),
+      exempt:ex||(G.exempt?"none on file":""),
+      absentee:/\bHS\b/i.test(ex)?"N":"Y",
+      outoftown:!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase()),
+      pid:pid, geo:G.geo?a[G.geo]:"", link:(src.link&&pid)?src.link(pid):""
+    };
+  });
+
+  /* what kind of property is this, according to the county? */
+  var code=rows[0].cls, t=typeForClass(src,code)||PT;
+  var o=optsFor(t);
+  var scored=rows.map(function(x){return analyse(x,o)}).filter(Boolean);
+
+  if(!scored.length){
+    say("<b>Found "+rows.length+" matching parcel"+(rows.length>1?"s":"")+", but none could be "+
+        "underwritten.</b> Usually that means the roll carries no building size for it"+
+        (code?" (class <b>"+code+"</b>)":"")+". If it's a vacant lot, the land model needs an "+
+        "acreage the county hasn't published for this parcel.","err");
+    return;
+  }
+  scored.sort(function(a,b){return b.score-a.score});
+  render(rows,titleCase(q)+" \u00b7 single address",true,o);
+
+  say("<b>"+PTYPE[t].label+"</b>"+(code?' \u00b7 county class <b>'+code+'</b>':'')+
+      " \u00b7 scored with your "+PTYPE[t].label.toLowerCase()+" numbers."+
+      (rows.length>1?" "+rows.length+" parcels matched that address.":"")+
+      (t!==PT?" The ranked list above is still set to "+PTYPE[PT].label.toLowerCase()+".":""),"ok");
+};
 
 /* ---- county finder --------------------------------------------------------
    Counties publish parcel data to ArcGIS Online, which is a national catalogue
@@ -2042,7 +2191,7 @@ $("bustCache").onclick=async function(e){
 FILTERS.forEach(function(f){
   var el=$(f[0]); if(!el) return;
   el.addEventListener("change",function(){
-    if(RAW.length) render(RAW,LABEL,false);
+    if(RAW.length) render(RAW,LABEL,false,RENDO);
   });
 });
 
@@ -2065,11 +2214,18 @@ function ptSupported(t){
   return t==="house";                      // a source with one class list only does houses
 }
 function currentSource(){
+  /* The county <select> already holds the full SRC key ("TX|HIDALGO"), so
+     gluing the state on the front produced "TX|TX|HIDALGO" and matched nothing.
+     Every type chip therefore stayed enabled and the single-address lookup
+     insisted no county was picked. */
   try{
-    var st=$("f_state").value, co=$("f_county").value;
-    if(co==="__other") co=$("f_countyOther").value;
-    var k=(st+"|"+String(co||"").toUpperCase().trim());
-    return SRC[k]||null;
+    var v=$("f_county").value;
+    if(SRC[v]) return SRC[v];
+    if(v==="__other__"){
+      var k=$("f_state").value+"|"+String($("f_countyOther").value||"").toUpperCase().trim();
+      return SRC[k]||null;
+    }
+    return null;
   }catch(e){ return null }
 }
 function drawPT(){
@@ -2195,7 +2351,7 @@ drawPT();
 document.querySelectorAll(".inp").forEach(function(i){
   if(NORERANK[i.id]||/^ncf_/.test(i.id)) return;
   i.addEventListener("change",function(){
-    if(RAW.length) render(RAW,LABEL,false);
+    if(RAW.length) render(RAW,LABEL,false,RENDO);
   });
 });
 /* Nothing runs on arrival. Set the county, the city and your numbers, then ask. */
