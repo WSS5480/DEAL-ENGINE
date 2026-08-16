@@ -286,7 +286,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=21" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=22" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -351,12 +351,13 @@ label.f.sm2 .inp{padding:8px 9px}
 </div>
 
 <div class="card">
-  <h3>Your numbers <span class="tag">these drive every offer</span></h3>
+  <h3>Your numbers <span class="tag" id="numTag">these drive every offer</span></h3>
+  <p id="numNote" style="font-size:11.5px;color:var(--txt3);margin:0 0 10px;line-height:1.5"></p>
   <div class="grid g3">
-    <label class="f pre"><span>ARV $/sq ft</span><input class="inp" type="number" id="f_arvpsf" value="145"></label>
-    <label class="f pre"><span>Rehab $/sq ft</span><input class="inp" type="number" id="f_rehabpsf" value="36"></label>
-    <label class="f pre"><span>Target profit</span><input class="inp" type="number" id="f_target" value="35000"></label>
-    <label class="f pre"><span>Rehab ceiling</span><input class="inp" type="number" id="f_rehabmax" value="55000"></label>
+    <label class="f pre" id="nARV"><span>ARV $/sq ft</span><input class="inp" type="number" id="f_arvpsf" value="145"></label>
+    <label class="f pre" id="nRehab"><span>Rehab $/sq ft</span><input class="inp" type="number" id="f_rehabpsf" value="36"></label>
+    <label class="f pre" id="nTarget"><span>Target profit</span><input class="inp" type="number" id="f_target" value="35000"></label>
+    <label class="f pre" id="nCeil"><span>Rehab ceiling</span><input class="inp" type="number" id="f_rehabmax" value="55000"></label>
     <label class="f"><span>Rule of thumb %</span><input class="inp" type="number" id="f_rule" value="70"></label>
     <label class="f"><span>Hold months</span><input class="inp" type="number" id="f_hold" value="6"></label>
   </div>
@@ -488,7 +489,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 21 · buy box is per type, blank means no limit · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 22 · Cameron commercial codes + numbers per type · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -1169,9 +1170,14 @@ var SRC={
    label:"Cameron CAD 2026 roll",
    f:cameronFields(false),
    classes:"'A'",   /* Cameron codes single family 'A'. Asking for 'A1' returns one row. */
-   /* one letter per category here, so houses and mobile homes are the same
-      code and cannot be told apart \u2014 `mobile` is left out rather than faked */
-   types:{house:"'A'", multi:"'B'", land:"'C','D','E'", comm:"'F'"},
+   /* Read off the layer, not guessed. Cameron mixes bare letters and numbered
+      codes in the same column: A A-C A1 A1C B C C1 C1A C1C D1 D2 E E1 E2 F F1
+      F1A F2 J* X*. Asking for 'F' alone matched ONE parcel countywide \u2014 the
+      identical trap that 'A1' fell into. Houses and mobile homes share the A
+      codes with no way to separate them, so `mobile` stays absent. */
+   types:{house:"'A','A-C','A1','A1C'", multi:"'B'",
+          land:"'C','C1','C1A','C1C','D1','D2','E','E1','E2'",
+          comm:"'F','F1','F1A','F2'"},
    order:"market ASC",
    centroid:true,
    cities:CAMERON_CITIES,
@@ -1179,7 +1185,9 @@ var SRC={
      q:"https://services2.arcgis.com/6oaLMZEZlktbQpyi/arcgis/rest/services/CCAD_Parcels_View/FeatureServer/0/query",
      label:"Cameron CAD 2025 roll (Esri mirror)",
      f:cameronFields(true), classes:"'A'", order:"market ASC", centroid:true,
-     types:{house:"'A'", multi:"'B'", land:"'C','D','E'", comm:"'F'"},
+     types:{house:"'A','A-C','A1','A1C'", multi:"'B'",
+            land:"'C','C1','C1A','C1C','D1','D2','E','E1','E2'",
+            comm:"'F','F1','F1A','F2'"},
      cities:CAMERON_CITIES
    }
  }
@@ -2094,6 +2102,57 @@ var BOX={
          f_arvmin:"185000",f_arvmax:"240000"},
   mobile:{}, multi:{}, land:{}, comm:{}
 };
+
+/* Your numbers, per type. A $145/sf ARV and a $36/sf rehab are a McAllen
+   single-family flip; carrying them onto a manufactured home or a warehouse
+   produces confident nonsense. These are starting points sized to each asset
+   class \u2014 every one of them is yours to overwrite, and the app remembers
+   what you change per type. Blank means the model doesn't use it. */
+var NUMFIELDS=["f_arvpsf","f_rehabpsf","f_target","f_rehabmax","f_rule","f_hold"];
+var NUM={
+  house: {f_arvpsf:"145",f_rehabpsf:"36",f_target:"35000",f_rehabmax:"55000",f_rule:"70",f_hold:"6"},
+  /* manufactured homes resell for a fraction of stick-built and rehab is
+     lighter \u2014 flooring, skirting, a roof coat, not a foundation */
+  mobile:{f_arvpsf:"80", f_rehabpsf:"22",f_target:"15000",f_rehabmax:"25000",f_rule:"70",f_hold:"4"},
+  /* small multifamily trades closer to income than to finish quality, and
+     turns take longer because you are emptying more than one unit */
+  multi: {f_arvpsf:"120",f_rehabpsf:"30",f_target:"45000",f_rehabmax:"90000",f_rule:"70",f_hold:"9"},
+  /* land uses $ per acre, up in the buy box. Nothing here applies. */
+  land:  {f_arvpsf:"",   f_rehabpsf:"",  f_target:"",     f_rehabmax:"",    f_rule:"70",f_hold:"6"},
+  /* ARV per sq ft is deliberately empty: commercial value comes from the
+     roll's own median $/sf, so there is nothing for you to guess at */
+  comm:  {f_arvpsf:"",   f_rehabpsf:"25",f_target:"",     f_rehabmax:"",    f_rule:"70",f_hold:"12"}
+};
+var NUMSHOW={
+  house: {nARV:1,nRehab:1,nTarget:1,nCeil:1},
+  mobile:{nARV:1,nRehab:1,nTarget:1,nCeil:1},
+  multi: {nARV:1,nRehab:1,nTarget:1,nCeil:1},
+  land:  {},                                   /* none of it applies */
+  comm:  {nRehab:1}                            /* fit-out only */
+};
+var NUMNOTE={
+  house: "",
+  mobile:"Sized for manufactured homes \u2014 resale per sq ft and rehab both run well under a stick-built house. Change anything that doesn't match your market.",
+  multi: "Sized for small multifamily. Hold months are longer because you are turning more than one unit.",
+  land:  "Land is priced off <b>$ per acre</b> in the buy box above, so none of these apply.",
+  comm:  "No ARV to enter \u2014 commercial is valued against the median $ per building sq ft of the search itself. Rehab $/sq ft is your fit-out allowance."
+};
+function saveNums(t){
+  NUM[t]=NUM[t]||{};
+  NUMFIELDS.forEach(function(id){ var e=$(id); if(e) NUM[t][id]=e.value; });
+}
+function loadNums(t){
+  NUMFIELDS.forEach(function(id){
+    var e=$(id); if(!e) return;
+    e.value=(NUM[t]&&NUM[t][id]!=null)?NUM[t][id]:"";
+    e.placeholder=e.value===""?"not used":"";
+  });
+  ["nARV","nRehab","nTarget","nCeil"].forEach(function(id){
+    var e=$(id); if(e) e.style.display=(NUMSHOW[t]&&NUMSHOW[t][id])?"":"none";
+  });
+  var n=$("numNote"); if(n){ n.innerHTML=NUMNOTE[t]||""; n.style.display=NUMNOTE[t]?"block":"none"; }
+  var tag=$("numTag"); if(tag) tag.textContent=(t==="land")?"land uses $ per acre":"these drive every offer";
+}
 function saveBox(t){
   BOX[t]=BOX[t]||{};
   BOXFIELDS.forEach(function(id){ var e=$(id); if(e) BOX[t][id]=e.value; });
@@ -2108,10 +2167,11 @@ function loadBox(t){
 function setPT(t){
   if(!PTYPE[t]||!ptSupported(t)) return;
   if(t===PT) return;
-  saveBox(PT);
+  saveBox(PT); saveNums(PT);
   PT=t;
-  loadBox(t);
+  loadBox(t); loadNums(t);
   drawPT();
+loadNums(PT);
   clearList();                 // a stale ranking under a new model is a lie
   setStatSafe();
 }
