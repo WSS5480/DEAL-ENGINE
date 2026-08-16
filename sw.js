@@ -8,13 +8,13 @@
  *   aerial tiles     cache first                      — imagery from 2024 is
  *                                                       the same imagery today
  */
-var VERSION = "de-2026-08-16-y";
+var VERSION = "de-2026-08-16-z";
 var SHELL   = VERSION + "-shell";
 var TILES   = "de-tiles";
 var TILE_MAX = 400;               // roughly 25 MB of imagery, then oldest go
 
 var PRECACHE = [
-  "./", "./index.html", "./calc.html", "./search.html", "./manifest.json", "./config.js?v=24",
+  "./", "./index.html", "./calc.html", "./search.html", "./manifest.json", "./config.js?v=25",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"
 ];
 

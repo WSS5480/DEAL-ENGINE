@@ -287,7 +287,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=23" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=25" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -303,7 +303,7 @@ label.f.sm2 .inp{padding:8px 9px}
     <div class="lg"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#e9782a"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
     <div><h1>Deal Finder</h1><small id="sub">IntAIlisoft · live county records</small></div>
     <span class="sp"></span>
-    <a class="calcbtn" href="calc.html">One property &rarr;</a><span class="cnt" id="cnt"></span>
+    <a class="calcbtn" href="search.html">Search &rarr;</a><a class="calcbtn" href="calc.html">Calculator &rarr;</a><span class="cnt" id="cnt"></span>
   </div>
 </header>
 
@@ -504,7 +504,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 23 · score one address · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 25 · Starr, ownership & deeds, back buttons · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -581,7 +581,7 @@ function analyseLand(r,o){
     cashIn:offer, rent:0, cfMo:0, anchor:anchor,
     owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
     outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
-    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,kind:"land"};
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,deed:r.deed||null,legal:r.legal||"",kind:"land"};
   p.flag=flagFor(p);
   var sc=0;
   sc+=clamp(1-(p.cut-0.05)/0.55,0,1)*40;                       // under the county's number
@@ -631,7 +631,7 @@ function analyseComm(r,o){
     cashIn:Math.max(0,offer)*pct(o.down),rent:0,cfMo:0,anchor:anchor,
     owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
     outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
-    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,kind:"comm"};
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,deed:r.deed||null,legal:r.legal||"",kind:"comm"};
   p.flag=flagFor(p);
   var sc=0;
   sc+=clamp(1-(p.cut-0.10)/0.50,0,1)*30;
@@ -676,7 +676,7 @@ function analyse(r,o){
     margin:arv>0?profit/arv:0,cashIn:cashIn,rent:rent,cfMo:noi/12-mo,anchor:anchor,
     owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
     outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
-    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon};
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,deed:r.deed||null,legal:r.legal||""};
   p.absentee=r.absentee||"";
   p.flag=flagFor(p);
   p.score=score(p,o);
@@ -885,8 +885,56 @@ function kvBlock(p){
     '</div>';
 }
 
+/* ---- who owns it, and how to walk the chain back ---------------------------
+ * An appraisal district publishes the CURRENT owner and, if you are lucky, the
+ * most recent deed. It never publishes a chain of title \u2014 that is the county
+ * clerk's job, and all three of these counties put theirs on the same platform.
+ * So: show every ownership fact the CAD does carry, then hand off to the clerk
+ * with the search already filled in.
+ */
+function titleBlock(p){
+  var key=SRCKEY||"", h="";
+  var d=p.deed;
+  h+='<div class="fh" style="margin-top:14px">Ownership</div>';
+  h+='<div class="led"><span class="l">Owner</span><b style="font-family:inherit;font-weight:600">'+
+     (p.owner||"\u2014")+'</b></div>';
+  if(p.mail) h+='<div class="led"><span class="l">Mails to</span><b style="font-family:inherit;font-weight:600">'+p.mail+'</b></div>';
+  h+='<div class="led"><span class="l">Lives there?</span><b style="font-family:inherit;font-weight:600">'+
+     (String(p.absentee).toUpperCase()==="Y"
+       ? "No homestead exemption on file"+(p.outoftown?" \u00b7 mails out of town":"")
+       : "Homestead on file \u2014 owner-occupied")+'</b></div>';
+  if(p.legal) h+='<div class="led"><span class="l">Legal</span><b style="font-family:inherit;font-weight:600">'+p.legal+'</b></div>';
+
+  if(d){
+    var bits=[];
+    if(d.date) bits.push(d.date);
+    if(d.type) bits.push(d.type);
+    if(d.num)  bits.push("inst. "+d.num);
+    if(d.vol&&d.page) bits.push("vol "+d.vol+" pg "+d.page);
+    h+='<div class="led"><span class="l">Last deed</span><b style="font-family:inherit;font-weight:600">'+
+       (bits.join(" \u00b7 ")||"\u2014")+'</b></div>';
+    if(d.rec&&d.rec!==d.date)
+      h+='<div class="led"><span class="l">Recorded</span><b style="font-family:inherit;font-weight:600">'+d.rec+'</b></div>';
+  }
+
+  var byName=clerkSearch(key,p.owner), byAddr=clerkSearch(key,p.address);
+  var byInst=(d&&d.num)?clerkSearch(key,d.num):"";
+  if(byName||byAddr){
+    h+='<div class="phrow" style="margin-top:9px">'+
+       (byName?'<a class="phbtn" href="'+byName+'" target="_blank" rel="noopener">Deeds by owner \u2197</a>':'')+
+       (byInst?'<a class="phbtn" href="'+byInst+'" target="_blank" rel="noopener">This instrument \u2197</a>':'')+
+       (byAddr?'<a class="phbtn" href="'+byAddr+'" target="_blank" rel="noopener">Deeds by address \u2197</a>':'')+
+       '</div>'+
+       '<p class="hint" style="margin-top:7px">The county\u2019s roll only ever shows who owns it '+
+       'now and the last deed in. Those links open the <b>county clerk\u2019s official public '+
+       'records</b> with the search filled in \u2014 that is where the chain of title is, deed by '+
+       'deed, back as far as they have scanned.</p>';
+  }
+  return h;
+}
+
 /* ---- render ---- */
-var LIST=[], RENDO=null;
+var LIST=[], RENDO=null, SRCKEY="";
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
 var RAW=[], LABEL="";
 var FILTERS=[
@@ -1009,6 +1057,7 @@ function render(rows,label,jump,oOverride){
         (p.mail?'<div class="led"><span class="l">Mail to</span><b style="font-family:inherit;font-weight:600">'+p.mail+'</b></div>':"")+
         (p.exempt?'<div class="led"><span class="l">Exemptions</span><b style="font-family:inherit;font-weight:600">'+p.exempt+'</b></div>':"")+
         '<div class="why">'+whyText(p)+'</div>'+
+        titleBlock(p)+
         (p.link?'<a class="cadlink" href="'+p.link+'" target="_blank" rel="noopener">Open the county record \u2197</a>':"")+
       '</div>';
     d.onclick=function(e){
@@ -1133,7 +1182,10 @@ function cameronFields(upper){
           mailstate:n("addrstate","addrState"), mailzip:n("addrzip","addrZip"),
           sqft:n("lvgarea","lvgArea"), year:n("yrbuilt","yrBuilt"), cad:"market",
           cls:n("statecd","stateCd"), exempt:"exms", pid:n("prop_id","PROP_ID"),
-          geo:n("geo_id","geoID"), unit:"city"};
+          geo:n("geo_id","geoID"), unit:"city",
+          deed:{date:n("deeddt","deedDt"), rec:n("deedrecdt","deedRecDt"),
+                type:n("deedtype","deedType"), vol:"volume", page:"page",
+                num:n("docnum","docNum")}};
 }
 
 /* ---- what you're shopping for -------------------------------------------
@@ -1157,13 +1209,25 @@ var PTYPE={
 };
 var PT="house";
 
+/* Every one of these three counties runs its official public records on the
+   same Kofile platform, at <county>.tx.publicsearch.us. That is where a chain of
+   title actually lives \u2014 no appraisal district publishes one. */
+var CLERK={"TX|HIDALGO":"hidalgo","TX|CAMERON":"cameron","TX|STARR":"starr"};
+function clerkSearch(countyKey,q){
+  var sub=CLERK[countyKey];
+  if(!sub) return "";
+  return "https://"+sub+".tx.publicsearch.us/results?_courtId=&department=RP"+
+         "&limit=50&offset=0&q="+encodeURIComponent(String(q||"").trim())+
+         "&searchOcrText=false&searchType=quickSearch";
+}
 var SRC={
  "TX|HIDALGO":{
    q:"https://services9.arcgis.com/dwMDP55HTfoj4n1c/arcgis/rest/services/HCAD_PARCELS_2026/FeatureServer/1/query",
    label:"Hidalgo CAD 2026 certified roll",
    f:{addr:"situs",owner:"name",mail:"addrDeliveryLine",mailcity:"addrCity",mailstate:"addrState",
       mailzip:"addrZip",sqft:"imprvMainArea",year:"imprvActualYearBuilt",cad:"marketValue",
-      cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",geo:"geoID",unit:"taxingUnits"},
+      cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",geo:"geoID",unit:"taxingUnits",
+      deed:{date:"deedDt",type:"deedType",num:"instrumentNum"}},
    link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
    classes:"'A1','A2'",
    /* verified against the distinct stateCd values actually present in the 2026
@@ -1178,6 +1242,41 @@ var SRC={
    cities:{MCALLEN:"CML",EDINBURG:"CEB",MISSION:"CMS",PHARR:"CPR",WESLACO:"CWL",
      "SAN JUAN":"CSJ",DONNA:"CDN",MERCEDES:"CMC",ALAMO:"CAO",HIDALGO:"CHD",
      "LA JOYA":"CLJ",PALMVIEW:"CPM",ALTON:"CAN"}
+ },
+
+ /* ---- Starr County ------------------------------------------------------
+  * Lookup only, and that is a data limitation rather than a decision.
+  *
+  * Starr CAD publishes 40,379 parcels, but its roll carries no building square
+  * footage, no year built and no state class code. Every ranking model in this
+  * app is built on sqft x $/sf, so a ranked Starr search could only ever return
+  * an empty list or an invented number. What the roll DOES carry is land size,
+  * land and improvement values split out, the owner, the mailing address and
+  * the last recorded deed — which is exactly enough to answer "who owns this
+  * and what does the county think it's worth".
+  *
+  * The obvious endpoint (services.arcgis.com/eeOR7tCg5imWJmGV/...) answers every
+  * query with an empty feature set: the layer is secured and only shared through
+  * the proxy item below. That is the URL that works.
+  */
+ "TX|STARR":{
+   q:"https://utility.arcgis.com/usrsvcs/servers/ff05af4293474b45abf39075250efe78/rest/services/StarrCADWebService/FeatureServer/0/query",
+   label:"Starr CAD parcels",
+   lookupOnly:true,
+   why:"Starr's roll publishes no building square footage, year built or class code, "+
+       "so there is nothing to rank on. Ownership, values, acreage and the last deed all work.",
+   f:{addrParts:["situs_num","situs_street_prefx","situs_street","situs_street_sufix"],
+      addr:"situs_street", city:"situs_city", zip:"situs_zip",
+      owner:"file_as_name", mail:"addr_line1", mailcity:"addr_city",
+      mailstate:"addr_state", mailzip:"zip",
+      cad:"market", pid:"prop_id", geo:"geo_id", unit:"city",
+      legal:"legal_desc",
+      deed:{date:"Deed_Date", vol:"Volume", page:"Page", num:"Number"}},
+   f2:{acres:"legal_acreage", landval:"land_val", imprval:"imprv_val"},
+   order:"market ASC",
+   centroid:true,
+   cities:{"RIO GRANDE CITY":"RIO GRANDE CITY", ROMA:"ROMA", "LA GRULLA":"LA GRULLA",
+     ESCOBARES:"ESCOBARES"}
  },
 
  "TX|CAMERON":{
@@ -1225,6 +1324,25 @@ var FIELD={
 function pickField(fields,re){for(var i=0;i<fields.length;i++){if(re.test(fields[i]))return fields[i]}return null}
 function setStat(msg,cls){var s=$("liveStatus");s.className="status"+(cls?" "+cls:"");s.innerHTML=msg}
 function esc(v){return String(v).replace(/'/g,"''")}
+/* Counties store the deed date three different ways: an ISO string, a US date
+   string, and epoch milliseconds. Take all three, print one. */
+function deedDate(v){
+  if(v==null||v==="") return "";
+  var n=Number(v);
+  if(isFinite(n)&&n>10000000000){ var d=new Date(n); return isFinite(d.getTime())?d.toISOString().slice(0,10):"" }
+  var s2=String(v).trim();
+  var m=s2.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[0];
+  m=s2.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return m[3]+"-"+("0"+m[1]).slice(-2)+"-"+("0"+m[2]).slice(-2);
+  return s2.slice(0,10);
+}
+function deedOf(G,a){
+  var d=G&&G.deed; if(!d) return null;
+  var g=function(k){ return d[k]?String(a[d[k]]==null?"":a[d[k]]).trim():"" };
+  var o={date:deedDate(d.date?a[d.date]:""), rec:deedDate(d.rec?a[d.rec]:""),
+         type:g("type"), vol:g("vol"), page:g("page"), num:g("num")};
+  return (o.date||o.rec||o.num||o.vol) ? o : null;
+}
 
 /* "3418 N 40TH LN, MCALLEN TX" -> {addr:"3418 N 40TH LN", city:"MCALLEN"} */
 function splitSitus(v){
@@ -1281,6 +1399,14 @@ $("btnRun").onclick=async function(){ runLive(false) };
 async function runLive(quiet){
   var st=$("f_state").value, county=countyName(), city=cityName();
   if(!county){setStat("Type a county name first.","err");return false}
+  /* Some counties publish enough to identify a property but not enough to rank
+     one. Say so plainly instead of returning an empty list. */
+  var pre=currentSource();
+  if(pre&&pre.lookupOnly){
+    setStat("<b>"+county+" County is lookup-only.</b> "+(pre.why||"")+
+            " Use <b>Score one address</b> below \u2014 it works fully here.","err");
+    return false;
+  }
   $("btnRun").disabled=true;
   try{
     var src=await findLayer(st,county);
@@ -1397,7 +1523,8 @@ async function runLive(quiet){
             mailcity:titleCase(mcity),
             exempt:ex||(G.exempt?"none on file":""),
             absentee:homestead?"N":"Y",outoftown:away,
-            pid:pid,geo:G.geo?a[G.geo]:"",link:(source.link&&pid)?source.link(pid):""
+            pid:pid,geo:G.geo?a[G.geo]:"",link:(source.link&&pid)?source.link(pid):"",
+            deed:deedOf(G,a), legal:G.legal?String(a[G.legal]||"").trim():""
           });
         });
         offset+=fs.length;
@@ -1732,6 +1859,61 @@ $("ncSave").onclick=function(){
   })();
 })();
 
+/* A parcel the models can't touch — no building size published — still has an
+   owner, a value, a lot and a deed. Show that rather than nothing. It is a
+   record card, not a deal card: no score, no offer, nothing invented. */
+function recordCards(rows,label){
+  var res=$("results"); res.innerHTML="";
+  $("cnt").textContent=rows.length+" record"+(rows.length>1?"s":"");
+  $("footT").textContent=label; $("footM").textContent="record only \u2014 no score";
+  rows.forEach(function(r,i){
+    var d=document.createElement("div");
+    d.className="deal open";
+    var acres=nz(r.acres), cad=nz(r.cad);
+    var box=function(k,v){return '<div><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'};
+    d.innerHTML=
+      '<div class="dhead">'+
+      (r.lat?'<div class="tw">'+aerial(r.lat,r.lon,18,52,52,"thumb")+'<i class="rk">'+(i+1)+'</i></div>'
+            :'<div class="rank">'+(i+1)+'</div>')+
+      '<div class="dmain"><div class="addr"><span class="at">'+(r.address||"\u2014")+'</span></div>'+
+      '<div class="sub">'+(acres?acres.toFixed(2)+" acres":"county record")+
+        (r.city?" \u00b7 "+r.city:"")+(r.zip?" \u00b7 "+r.zip:"")+'</div></div>'+
+      '<div class="dright"><div class="off">'+(cad?money(cad):"\u2014")+'</div>'+
+      '<div class="sc">county value</div></div></div>'+
+      '<div class="body">'+
+        (r.lat?'<div class="photo">'+streetPhoto(r.lat,r.lon,330,168)+aerial(r.lat,r.lon,19,330,158)+
+          '<div class="phrow">'+
+            '<a class="phbtn svlink" href="'+streetView(r)+'" target="_blank" rel="noopener">Street View \u2197</a>'+
+            '<a class="phbtn" href="'+mapLink(r.lat,r.lon)+'" target="_blank" rel="noopener">Map \u2197</a>'+
+            '<span class="phcred">Imagery \u00a9 Esri, Maxar</span>'+
+          '</div></div>':'')+
+        '<div class="kv">'+
+          box("County value",cad?money(cad):"\u2014")+
+          box("Land value",nz(r.landval)?money(nz(r.landval)):"\u2014")+
+          box("Improvements",nz(r.imprval)?money(nz(r.imprval)):"\u2014")+
+          box("Acres",acres?acres.toFixed(2):"\u2014")+
+        '</div>'+
+        '<div class="note"><b>No score.</b> This county publishes no building square '+
+        'footage, so there is nothing honest to base an ARV, a rehab or an offer on. '+
+        'Everything below comes straight off the appraisal roll.</div>'+
+        titleBlock(r)+
+        (r.link?'<a class="cadlink" href="'+r.link+'" target="_blank" rel="noopener">Open the county record \u2197</a>':"")+
+      '</div>';
+    d.onclick=function(e){
+      var t=e&&e.target;
+      if(t&&t.closest&&t.closest("a")) return;
+      var was=d.classList.contains("open");
+      if(was&&!(t&&t.closest&&t.closest(".dhead"))) return;
+      d.classList.toggle("open");
+      if(!was&&r.lat) tuneSV(d,r.lat,r.lon);
+    };
+    res.appendChild(d);
+    if(r.lat) tuneSV(d,r.lat,r.lon);
+  });
+  $("filterCard").style.display="none";
+  LIST=[]; RAW=[];
+}
+
 /* ---- score one address ----------------------------------------------------
  * A ranked list answers "what should I look at". This answers "what about THIS
  * one" — the question you get standing in front of a house, or when somebody
@@ -1785,6 +1967,7 @@ $("btnOne").onclick=async function(){
   if(!src){ say("Pick a wired-up county above first \u2014 Hidalgo or Cameron. "+
                 "A county you added yourself works too.","err"); return }
   var G=src.f||{}, G2=src.f2||{};
+  SRCKEY=(function(){ try{ var v=$("f_county").value; return SRC[v]?v:""; }catch(e){ return "" } })();
   if(!G.addr){ say("That county's layer has no address column.","err"); return }
 
   var toks=addrTokens(q);
@@ -1838,7 +2021,8 @@ $("btnOne").onclick=async function(){
       exempt:ex||(G.exempt?"none on file":""),
       absentee:/\bHS\b/i.test(ex)?"N":"Y",
       outoftown:!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase()),
-      pid:pid, geo:G.geo?a[G.geo]:"", link:(src.link&&pid)?src.link(pid):""
+      pid:pid, geo:G.geo?a[G.geo]:"", link:(src.link&&pid)?src.link(pid):"",
+      deed:deedOf(G,a), legal:G.legal?String(a[G.legal]||"").trim():""
     };
   });
 
@@ -1848,10 +2032,13 @@ $("btnOne").onclick=async function(){
   var scored=rows.map(function(x){return analyse(x,o)}).filter(Boolean);
 
   if(!scored.length){
-    say("<b>Found "+rows.length+" matching parcel"+(rows.length>1?"s":"")+", but none could be "+
-        "underwritten.</b> Usually that means the roll carries no building size for it"+
-        (code?" (class <b>"+code+"</b>)":"")+". If it's a vacant lot, the land model needs an "+
-        "acreage the county hasn't published for this parcel.","err");
+    recordCards(rows,titleCase(q)+" \u00b7 county record");
+    window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
+    say("<b>Found "+rows.length+" parcel"+(rows.length>1?"s":"")+".</b> No score \u2014 "+
+        (src.lookupOnly
+          ? (src.why||"this county publishes no building size.")
+          : "the roll carries no building size for this one"+(code?" (class <b>"+code+"</b>)":"")+".")+
+        " Ownership, values, acreage and the deed are all below.","ok");
     return;
   }
   scored.sort(function(a,b){return b.score-a.score});
@@ -2210,6 +2397,7 @@ var NORERANK={f_county:1,f_city:1,f_countyOther:1,f_cityOther:1,f_zips:1,f_state
 function ptSupported(t){
   var src=currentSource();
   if(!src) return true;                    // unknown county: let them try
+  if(src.lookupOnly) return false;         // nothing to rank on in this county
   if(src.types) return !!src.types[t];
   return t==="house";                      // a source with one class list only does houses
 }
@@ -2230,6 +2418,7 @@ function currentSource(){
 }
 function drawPT(){
   var src=currentSource();
+  SRCKEY=(function(){ try{ var v=$("f_county").value; return SRC[v]?v:""; }catch(e){ return "" } })();
   [].forEach.call($("ptRow").children,function(b){
     var t=b.dataset.t, okT=ptSupported(t);
     b.disabled=!okT;
@@ -2238,6 +2427,13 @@ function drawPT(){
   });
   var d=PTYPE[PT]||PTYPE.house;
   var extra="";
+  if(src&&src.lookupOnly){
+    $("ptHint").innerHTML="<b>Lookup only in this county.</b> "+(src.why||"")+
+      " Scroll down to <b>Score one address</b>.";
+    $("boxNote").textContent="";
+    $("landBox").style.display="none"; $("bbGrid").style.display="none";
+    return;
+  }
   if(src&&src.types&&!src.types.mobile&&PT==="house")
     extra=" This county codes houses and mobile homes with the same letter, so both are in this list.";
   $("ptHint").innerHTML=d.hint+extra;

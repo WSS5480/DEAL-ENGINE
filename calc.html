@@ -47,6 +47,12 @@ header.top{
 .brand h1{font-size:17px;line-height:1.1}
 .brand small{display:block;color:var(--txt3);font-size:11px;font-weight:500;letter-spacing:.02em}
 .brand .spacer{flex:1}
+/* Tapping "One property" used to be a one-way door — nothing on this page led
+   back to the ranked list, so the only way out was the browser's own gesture,
+   which does not exist once the app is on a home screen. */
+.backbtn{font-size:11.5px;font-weight:700;color:#fff;text-decoration:none;
+ border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:5px 9px;
+ white-space:nowrap;margin-right:8px}
 .verdictchip{
   padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;
   letter-spacing:.04em;white-space:nowrap;border:1px solid transparent;
@@ -298,6 +304,7 @@ label.f.sm2 .inp{padding:8px 9px}
       <small id="brandSub">no property loaded</small>
     </div>
     <div class="spacer"></div>
+    <a class="backbtn" href="index.html">&larr; Finder</a>
     <span class="verdictchip pill mute" id="topChip">—</span>
   </div>
   <nav class="tabs" id="tabs">
