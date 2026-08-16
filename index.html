@@ -287,7 +287,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=25" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=27" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -380,6 +380,7 @@ label.f.sm2 .inp{padding:8px 9px}
   <h3>Where the list comes from <span class="tag" id="flagTag"></span></h3>
   <div class="seg" id="srcSeg">
     <button data-s="live" class="on">Live county</button>
+    <button data-s="find">Look up</button>
     <button data-s="paste">Paste list</button>
     <button data-s="demo">Demo</button>
     <button data-s="flag">Flagged</button>
@@ -394,19 +395,8 @@ label.f.sm2 .inp{padding:8px 9px}
     </div>
     <div class="status" id="liveStatus"></div>
 
-    <div class="oneaddr">
-      <div class="fh">Score one address</div>
-      <input class="inp" id="f_one" placeholder="1806 Ash Ave" autocomplete="off"
-             autocapitalize="characters" enterkeyhint="search">
-      <div class="row" style="margin-top:9px">
-        <button class="btn sm" id="btnOne">Score this address</button>
-      </div>
-      <p class="hint">Uses the county and city picked above. Street number and name is
-        enough — skip the suffix if nothing comes back. It reads the same appraisal
-        record the ranked list uses, works out what kind of property it is from the
-        county's own class code, and underwrites it with your numbers for that type.</p>
-      <div class="status" id="oneStatus"></div>
-    </div>
+    <p class="hint" style="margin-top:12px">Looking for one specific property rather than a
+      list? Use the <b>Look up</b> tab above — by address or by owner, no buy box.</p>
     <details class="acc" id="layerBox" style="display:none"><summary>Parcel layer URL</summary><div class="bd">
       <input class="inp" id="f_layer" placeholder="https://…/FeatureServer/0/query">
       <p style="font-size:12px;color:var(--txt3);margin:8px 0 0;line-height:1.5">
@@ -462,6 +452,25 @@ label.f.sm2 .inp{padding:8px 9px}
     </div></details>
   </div>
 
+  <div id="src-find" class="sb" style="display:none;margin-top:12px">
+    <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px;line-height:1.55">
+      One property at a time, from the county and city picked above. No buy box — you asked
+      about this one, not about ones like it. Works in every wired county including Starr.</p>
+    <div class="seg" id="findSeg" style="margin-bottom:10px">
+      <button data-fm="addr" class="on">By address</button>
+      <button data-fm="owner">By owner</button>
+    </div>
+    <label class="f"><span id="findLabel">Address</span>
+      <input class="inp" id="f_one" placeholder="1806 Ash Ave" autocomplete="off"
+             autocapitalize="characters" enterkeyhint="search"></label>
+    <div class="row" style="margin-top:9px">
+      <button class="btn" id="btnOne">🔎 Look it up</button>
+      <a class="btn ghost" href="search.html" style="text-align:center;text-decoration:none;line-height:1.4">Full page ↗</a>
+    </div>
+    <p class="hint" id="findHint"></p>
+    <div class="status" id="oneStatus"></div>
+  </div>
+
   <div id="src-paste" class="sb" style="display:none;margin-top:12px">
     <p style="font-size:12.5px;color:var(--txt2);margin:0 0 9px;line-height:1.55">
       Paste output from <b>county_scraper.py</b>, an MLS export, or any CSV with a header row.
@@ -504,7 +513,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 25 · Starr, ownership & deeds, back buttons · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-17 · 27 · fixes the broken query (deed fields) · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -934,7 +943,7 @@ function titleBlock(p){
 }
 
 /* ---- render ---- */
-var LIST=[], RENDO=null, SRCKEY="";
+var LIST=[], RENDO=null, PRE=null, SRCKEY="";
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
 var RAW=[], LABEL="";
 var FILTERS=[
@@ -949,12 +958,12 @@ var FILTERS=[
 function activeFilters(){
   return FILTERS.filter(function(f){ var e=$(f[0]); return e&&e.checked });
 }
-function render(rows,label,jump,oOverride){
+function render(rows,label,jump,oOverride,pre){
   /* oOverride lets the single-address lookup underwrite one parcel with the
      model and numbers for ITS type, without disturbing the type the ranked
      list is set to. */
   var o=oOverride||opts();
-  RAW=rows; LABEL=label; RENDO=oOverride||null;
+  RAW=rows; LABEL=label; RENDO=oOverride||null; PRE=pre||null;
   /* the commercial model needs one number that only exists once the whole set
      is in hand: the median $ per building sq ft across this search. Median, not
      mean \u2014 one 90,000 sf distribution centre would drag an average into
@@ -964,7 +973,11 @@ function render(rows,label,jump,oOverride){
                  .filter(function(v){return v>5&&v<600}).sort(function(a,b){return a-b});
     o.bench=psfs.length?psfs[Math.floor(psfs.length/2)]:0;
   }
-  var all=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
+  /* An owner search hands back a house, a lot and a strip centre together. Each
+     was already underwritten with the model for its own class code, so use those
+     rather than forcing one model over the whole set — which silently dropped
+     every parcel the chosen model could not handle. */
+  var all=pre?pre.slice():rows.map(function(r){return analyse(r,o)}).filter(Boolean);
   var on=activeFilters();
   /* every ticked box must hold, not any of them — otherwise "for sale" plus
      "absentee" would widen the list instead of narrowing it */
@@ -1097,7 +1110,8 @@ function whyText(p){
 $("srcSeg").onclick=function(e){
   var b=e.target.closest("button[data-s]"); if(!b) return;
   [].forEach.call($("srcSeg").children,function(x){x.classList.toggle("on",x===b)});
-  ["live","paste","demo","flag"].forEach(function(s){$("src-"+s).style.display=(s===b.dataset.s?"block":"none")});
+  ["live","find","paste","demo","flag"].forEach(function(s){$("src-"+s).style.display=(s===b.dataset.s?"block":"none")});
+  if(b.dataset.s==="find") drawFindMode();
   if(b.dataset.s==="flag") drawFlagList();
 };
 $("btnLayer").onclick=function(){var b=$("layerBox");b.style.display="block";b.open=true};
@@ -1324,6 +1338,26 @@ var FIELD={
 function pickField(fields,re){for(var i=0;i<fields.length;i++){if(re.test(fields[i]))return fields[i]}return null}
 function setStat(msg,cls){var s=$("liveStatus");s.className="status"+(cls?" "+cls:"");s.innerHTML=msg}
 function esc(v){return String(v).replace(/'/g,"''")}
+/* Flatten a field map into the column names ArcGIS will accept. Strings pass
+   through, arrays spread, nested objects (the deed block) contribute their
+   values, and anything else is dropped rather than stringified into garbage. */
+function fieldList(G){
+  var out=[];
+  for(var k in G){
+    var v=G[k];
+    if(!v) continue;
+    if(typeof v==="string"){ out.push(v); continue }
+    if(Object.prototype.toString.call(v)==="[object Array]"){
+      v.forEach(function(x){ if(typeof x==="string"&&x) out.push(x) });
+      continue;
+    }
+    if(typeof v==="object"){
+      for(var kk in v){ if(typeof v[kk]==="string"&&v[kk]) out.push(v[kk]) }
+    }
+  }
+  /* duplicates are harmless to ArcGIS but make the URL longer than it needs to be */
+  return out.filter(function(x,i){ return out.indexOf(x)===i });
+}
 /* Counties store the deed date three different ways: an ISO string, a US date
    string, and epoch milliseconds. Take all three, print one. */
 function deedDate(v){
@@ -1472,12 +1506,13 @@ async function runLive(quiet){
 
       var outF=[];
       for(var k2 in G2){ if(G2[k2]) outF.push(G2[k2]); }
-      for(var kk in G){
-        var v=G[kk];
-        if(!v) continue;
-        if(Object.prototype.toString.call(v)==="[object Array]") outF=outF.concat(v);
-        else outF.push(v);
-      }
+      /* The field map holds three shapes: a column name, an array of column
+         names (addresses that arrive in pieces), and — since deeds went in —
+         a nested OBJECT. Stringifying that object put the literal text
+         "[object Object]" into outFields, and ArcGIS answers the whole query
+         with "Invalid query parameters". One bad entry kills the request, so
+         this broke every live search on Hidalgo and Cameron at once. */
+      outF=outF.concat(fieldList(G));
       setStat('<span class="spin"></span>Querying '+(source.label||county)+'\u2026');
 
       var offset=0, capped=false;
@@ -1780,7 +1815,7 @@ $("ncSave").onclick=function(){
     try{ localStorage.setItem("de_svkey",v) }catch(e){}
     $("svStatus").className="status ok";
     $("svStatus").textContent = v ? "Saved. Open any property to see it." : "Cleared.";
-    if(RAW.length) render(RAW,LABEL,false,RENDO);
+    if(RAW.length) render(RAW,LABEL,false,RENDO,PRE);
   };
 
   /* Google answers metadata requests free and unlimited, and its error_message
@@ -1799,7 +1834,7 @@ $("ncSave").onclick=function(){
       var kept=false;
       if(j.status==="OK"||j.status==="ZERO_RESULTS"){
         try{ localStorage.setItem("de_svkey",k); kept=true }catch(e){}
-        if(RAW.length) render(RAW,LABEL,false,RENDO);
+        if(RAW.length) render(RAW,LABEL,false,RENDO,PRE);
       }
       var savedNote=kept?" <b>Saved to this device.</b>":"";
       if(j.status==="OK"){
@@ -1831,7 +1866,7 @@ $("ncSave").onclick=function(){
     try{ localStorage.removeItem("de_svkey") }catch(e){}
     $("sv_key").value=""; $("svStatus").className="status";
     $("svStatus").textContent="Removed.";
-    if(RAW.length) render(RAW,LABEL,false,RENDO);
+    if(RAW.length) render(RAW,LABEL,false,RENDO,PRE);
   };
 
   /* Say where the key is coming from before anyone has to ask. Shows the site
@@ -1957,11 +1992,32 @@ function optsFor(t){
   if(n.f_hold!==undefined&&n.f_hold!=="")        o.hold=n.f_hold;
   return o;
 }
+var FINDMODE="addr";
+function drawFindMode(){
+  [].forEach.call($("findSeg").children,function(b){b.classList.toggle("on",b.dataset.fm===FINDMODE)});
+  $("findLabel").textContent = FINDMODE==="addr" ? "Address" : "Owner name";
+  $("f_one").placeholder      = FINDMODE==="addr" ? "1806 Ash Ave" : "Garza";
+  var src=currentSource(), extra=(src&&src.lookupOnly)?" <b>"+(src.why||"")+"</b>":"";
+  $("findHint").innerHTML = (FINDMODE==="addr"
+    ? "Street number and name is enough \u2014 the suffix is dropped before searching, because "+
+      "every county spells it differently. It works out the property type from the county's own "+
+      "class code and underwrites it with your numbers for that type."
+    : "A surname on its own finds <b>every parcel that owner holds</b> in this county \u2014 the "+
+      "fastest way to spot someone with four tired rentals. Records are filed last name first.")+extra;
+}
+$("findSeg").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-fm]"); if(!b) return;
+  FINDMODE=b.dataset.fm; drawFindMode();
+});
+$("f_one").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){ e.preventDefault(); $("btnOne").click() }
+});
+
 $("btnOne").onclick=async function(){
   var st=$("oneStatus");
   var say=function(h,cls){ st.className="status"+(cls?" "+cls:""); st.innerHTML=h; };
   var q=$("f_one").value.trim();
-  if(!q){ say("Type an address first.","err"); return }
+  if(!q){ say(FINDMODE==="owner"?"Type an owner name first.":"Type an address first.","err"); return }
 
   var src=currentSource();
   if(!src){ say("Pick a wired-up county above first \u2014 Hidalgo or Cameron. "+
@@ -1970,16 +2026,21 @@ $("btnOne").onclick=async function(){
   SRCKEY=(function(){ try{ var v=$("f_county").value; return SRC[v]?v:""; }catch(e){ return "" } })();
   if(!G.addr){ say("That county's layer has no address column.","err"); return }
 
-  var toks=addrTokens(q);
-  var w=["UPPER("+G.addr+") LIKE '%"+esc(toks.join("%"))+"%'"];
+  var toks=addrTokens(q), w;
+  if(FINDMODE==="owner"){
+    if(!G.owner){ say("That county's layer has no owner column.","err"); return }
+    w=["UPPER("+G.owner+") LIKE '%"+esc(q.toUpperCase())+"%'"];
+  }else{
+    w=["UPPER("+G.addr+") LIKE '%"+esc(toks.join("%"))+"%'"];
+  }
   var outF=[];
-  for(var k in G){ var v=G[k]; if(!v) continue;
-    if(Object.prototype.toString.call(v)==="[object Array]") outF=outF.concat(v); else outF.push(v); }
+  outF=outF.concat(fieldList(G));
   for(var k2 in G2){ if(G2[k2]) outF.push(G2[k2]); }
 
-  say('<span class="spin"></span>Looking up '+toks.join(" ")+' in '+(src.label||"the county roll")+'\u2026');
+  say('<span class="spin"></span>Looking up '+(FINDMODE==="owner"?q:toks.join(" "))+
+      ' in '+(src.label||"the county roll")+'\u2026');
   var qp={where:w.join(" AND "),outFields:outF.join(","),returnGeometry:"false",
-          resultRecordCount:"25",f:"json"};
+          resultRecordCount:(FINDMODE==="owner"?"60":"25"),f:"json"};
   if(src.centroid){ qp.returnCentroid="true"; qp.outSR="4326"; }
 
   var r;
@@ -1988,6 +2049,11 @@ $("btnOne").onclick=async function(){
 
   var fs=(r&&r.features)||[];
   if(!fs.length){
+    if(FINDMODE==="owner"){
+      say("<b>No owner matched.</b> Appraisal records are filed last name first and often "+
+          "without punctuation \u2014 try the surname on its own.","err");
+      return;
+    }
     say("<b>No parcel matched.</b> The county stores its own spelling, so try just the "+
         "number and street name \u2014 <i>"+toks.slice(0,2).join(" ")+"</i> \u2014 and drop "+
         "any unit number. If it's in a different city, change the city above (or set it to "+
@@ -2029,7 +2095,13 @@ $("btnOne").onclick=async function(){
   /* what kind of property is this, according to the county? */
   var code=rows[0].cls, t=typeForClass(src,code)||PT;
   var o=optsFor(t);
-  var scored=rows.map(function(x){return analyse(x,o)}).filter(Boolean);
+  /* an owner search returns a house, a lot and a strip centre in the same
+     breath \u2014 underwrite each row with the model for ITS class, not the
+     first one's */
+  var scored=rows.map(function(x){
+    var tt=typeForClass(src,x.cls)||t;
+    return analyse(x,tt===t?o:optsFor(tt));
+  }).filter(Boolean);
 
   if(!scored.length){
     recordCards(rows,titleCase(q)+" \u00b7 county record");
@@ -2042,8 +2114,16 @@ $("btnOne").onclick=async function(){
     return;
   }
   scored.sort(function(a,b){return b.score-a.score});
-  render(rows,titleCase(q)+" \u00b7 single address",true,o);
+  render(rows,titleCase(q)+(FINDMODE==="owner"?" \u00b7 owner search":" \u00b7 single address"),
+         true,o,FINDMODE==="owner"?scored:null);
 
+  if(FINDMODE==="owner"){
+    var tot=rows.reduce(function(a,x){return a+nz(x.cad)},0);
+    say("<b>"+rows.length+" parcel"+(rows.length>1?"s":"")+"</b> held by that owner \u00b7 "+
+        money(tot)+" of county value between them"+
+        (rows.length>=60?" \u00b7 showing the first 60":"")+".","ok");
+    return;
+  }
   say("<b>"+PTYPE[t].label+"</b>"+(code?' \u00b7 county class <b>'+code+'</b>':'')+
       " \u00b7 scored with your "+PTYPE[t].label.toLowerCase()+" numbers."+
       (rows.length>1?" "+rows.length+" parcels matched that address.":"")+
@@ -2378,7 +2458,7 @@ $("bustCache").onclick=async function(e){
 FILTERS.forEach(function(f){
   var el=$(f[0]); if(!el) return;
   el.addEventListener("change",function(){
-    if(RAW.length) render(RAW,LABEL,false,RENDO);
+    if(RAW.length) render(RAW,LABEL,false,RENDO,PRE);
   });
 });
 
@@ -2547,7 +2627,7 @@ drawPT();
 document.querySelectorAll(".inp").forEach(function(i){
   if(NORERANK[i.id]||/^ncf_/.test(i.id)) return;
   i.addEventListener("change",function(){
-    if(RAW.length) render(RAW,LABEL,false,RENDO);
+    if(RAW.length) render(RAW,LABEL,false,RENDO,PRE);
   });
 });
 /* Nothing runs on arrival. Set the county, the city and your numbers, then ask. */

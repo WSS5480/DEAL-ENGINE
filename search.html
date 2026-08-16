@@ -107,7 +107,7 @@ select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.
 #buildTag{text-align:center;font-size:10.5px;color:var(--txt3);margin:16px 0 4px}
 #buildTag a{color:var(--acc2);font-weight:700}
 </style>
-<script src="config.js?v=25" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=27" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 </head>
 <body>
 
@@ -152,6 +152,21 @@ var $=function(i){return document.getElementById(i)};
 var nz=function(v){var n=parseFloat(v);return isFinite(n)?n:0};
 function money(v){var n=Math.round(nz(v));return (n<0?"-$":"$")+Math.abs(n).toLocaleString()}
 function esc(v){return String(v).replace(/'/g,"''")}
+/* Flatten a field map into column names. Strings pass, arrays spread, the
+   nested deed object contributes its values. Anything else is dropped — a
+   stringified object in outFields makes ArcGIS reject the entire query. */
+function fieldList(G){
+  var out=[];
+  for(var k in G){
+    var v=G[k]; if(!v) continue;
+    if(typeof v==="string"){ out.push(v); continue }
+    if(Object.prototype.toString.call(v)==="[object Array]"){
+      v.forEach(function(x){ if(typeof x==="string"&&x) out.push(x) }); continue;
+    }
+    if(typeof v==="object"){ for(var kk in v){ if(typeof v[kk]==="string"&&v[kk]) out.push(v[kk]) } }
+  }
+  return out.filter(function(x,i){ return out.indexOf(x)===i });
+}
 function titleCase(v){
   return String(v==null?"":v).toLowerCase().replace(/\b([a-z])/g,function(m){return m.toUpperCase()})
     .replace(/\b(Tx|Ii|Iii|Iv|Llc|Lp|Inc|Po)\b/g,function(m){return m.toUpperCase()}).trim();
@@ -417,10 +432,7 @@ async function lookup(src,label){
                                             : G.unit+" LIKE '%"+code+"%'"));
     else if(G.city) w.push("UPPER("+G.city+") LIKE '%"+esc(city.toUpperCase())+"%'");
   }
-  var outF=[];
-  for(var k in G){ var v=G[k]; if(!v||k==="deed") continue;
-    if(Object.prototype.toString.call(v)==="[object Array]") outF=outF.concat(v); else outF.push(v); }
-  if(G.deed) for(var dk in G.deed){ if(G.deed[dk]) outF.push(G.deed[dk]) }
+  var outF=fieldList(G);
   for(var k2 in G2){ if(G2[k2]) outF.push(G2[k2]) }
 
   var qp={where:w.join(" AND "), outFields:outF.join(","), returnGeometry:"false",
