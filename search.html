@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Property Search · IntAIlisoft</title>
+<meta name="theme-color" content="#16203a">
+<meta name="description" content="Look up any property in Hidalgo, Cameron or Starr County — owner, mailing address, values, acreage, the last recorded deed, and a one-tap link into the county clerk's records.">
+<style>
+:root{
+  --bg:#f4f6fa; --bg2:#eaeef6; --card:#fff; --line:#e2e7f0; --line2:#cfd7e6;
+  --txt:#16203a; --txt2:#4a5772; --txt3:#8290ab;
+  --acc:#f26a21; --acc2:#c94f0d; --navy:#16203a;
+  --good:#127a45; --warn:#9a6100; --bad:#a32020;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+ padding-bottom:40px}
+/* iOS zooms any input under 16px on focus and never zooms back out. */
+input,select,textarea,.inp{font-size:16px!important}
+
+header{background:var(--navy);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;
+ position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px}
+.logo{width:38px;height:38px;border-radius:10px;background:#0f1729;display:flex;align-items:center;
+ justify-content:center;flex:none}
+.logo i{display:block;width:15px;height:15px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+ background:var(--acc);position:relative}
+.logo i::after{content:"";position:absolute;left:4.5px;top:4.5px;width:6px;height:6px;border-radius:50%;background:#0f1729}
+.htxt{flex:1;min-width:0}
+.htxt b{display:block;font-size:19px;font-weight:800;letter-spacing:-.01em}
+.htxt span{display:block;font-size:11.5px;color:#9fb0d0;margin-top:1px}
+.hbtn{font-size:12.5px;font-weight:700;color:#fff;text-decoration:none;border:1px solid #33405f;
+ border-radius:9px;padding:8px 11px;white-space:nowrap}
+
+main{max-width:640px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:13px}
+h3{margin:0 0 12px;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--txt3);font-weight:800}
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}
+label.f{display:block}
+label.f>span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
+ color:var(--txt3);font-weight:750;margin-bottom:5px}
+.inp{width:100%;padding:12px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg2);
+ color:var(--txt);font-family:inherit;-webkit-appearance:none;appearance:none}
+select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7'><path d='M1 1l4.5 4.5L10 1' stroke='%238290ab' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
+ background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;min-width:130px;padding:13px 14px;border:0;border-radius:11px;background:var(--acc);color:#16203a;
+ font:800 15px/1 inherit;cursor:pointer}
+.btn.ghost{background:var(--card);color:var(--txt2);border:1px solid var(--line2);font-weight:700}
+.seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;padding:9px 6px;border:0;background:transparent;border-radius:9px;font:700 13px/1 inherit;
+ color:var(--txt2);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--txt);box-shadow:0 1px 2px rgba(20,30,60,.10)}
+.status{font-size:12.5px;line-height:1.55;color:var(--txt2);margin-top:10px;min-height:1px}
+.status.ok{color:var(--good)} .status.err{color:var(--bad)}
+.hint{font-size:11.5px;color:var(--txt3);line-height:1.5;margin:8px 0 0}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--line2);border-top-color:var(--acc);
+ border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.rec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:11px;overflow:hidden}
+.rhead{display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer}
+.tw{position:relative;width:52px;height:52px;flex:none;border-radius:9px;overflow:hidden;background:var(--bg2)}
+.rmain{flex:1;min-width:0}
+.raddr{font-weight:800;font-size:15px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsub{font-size:12px;color:var(--txt3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rval{text-align:right;flex:none}
+.rval b{display:block;font-family:var(--mono);font-size:15px;font-weight:700}
+.rval span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);margin-top:2px}
+.rbody{display:none;padding:0 14px 14px;border-top:1px solid var(--line)}
+.rec.open .rbody{display:block}
+.aer{position:relative;overflow:hidden;border-radius:10px;background:var(--bg2)}
+.aer img{position:absolute;width:256px;height:256px}
+.aer .pin{position:absolute;left:50%;top:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:50%;
+ border:2.5px solid #fff;box-shadow:0 0 0 2px rgba(20,30,60,.55);pointer-events:none}
+.tw .pin{width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-width:2px}
+.sv{position:relative;width:100%;overflow:hidden;border-radius:10px;border:1px solid var(--line);
+ background:var(--bg2);margin-bottom:8px}
+.sv img{width:100%;height:100%;object-fit:cover;display:block}
+.sv.why{height:auto!important;padding:9px 11px;font-size:12px;line-height:1.45;color:var(--txt2);display:block}
+.svc{position:absolute;left:7px;bottom:6px;font-size:9.5px;font-weight:700;color:#fff;
+ text-shadow:0 1px 3px rgba(0,0,0,.85)}
+.photo{margin:12px 0}
+.phrow{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
+.phbtn{font-size:12px;font-weight:700;color:var(--acc2);text-decoration:none;border:1px solid var(--line2);
+ border-radius:8px;padding:6px 10px;background:var(--card)}
+.phbtn.dim{color:var(--txt3);font-weight:600}
+.phcred{font-size:9.5px;color:var(--txt3);margin-left:auto;white-space:nowrap}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.kv>div{background:var(--bg2);border-radius:10px;padding:9px 11px}
+.k{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);font-weight:750}
+.v{font-family:var(--mono);font-size:14px;font-weight:700;margin-top:3px}
+.fh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin:14px 0 8px;font-weight:750}
+.led{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.led:last-of-type{border-bottom:0}
+.led .l{color:var(--txt2);flex:none}
+.led b{text-align:right;font-weight:600;word-break:break-word}
+.note{background:var(--bg2);border-left:3px solid var(--line2);border-radius:0 9px 9px 0;padding:10px 12px;
+ font-size:12.5px;line-height:1.55;color:var(--txt2);margin:11px 0}
+.cadlink{display:block;text-align:center;margin-top:11px;font-size:13px;font-weight:700;color:var(--acc2);
+ text-decoration:none;border:1px solid var(--line2);border-radius:10px;padding:11px}
+.empty{text-align:center;color:var(--txt3);font-size:13.5px;line-height:1.6;padding:26px 12px}
+.empty b{display:block;color:var(--txt2);font-size:15px;margin-bottom:6px}
+#buildTag{text-align:center;font-size:10.5px;color:var(--txt3);margin:16px 0 4px}
+#buildTag a{color:var(--acc2);font-weight:700}
+</style>
+<script src="config.js?v=24" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+</head>
+<body>
+
+<header>
+  <div class="logo"><i></i></div>
+  <div class="htxt"><b>Property Search</b><span>IntAIlisoft · county appraisal records</span></div>
+  <a class="hbtn" href="index.html">Deal Finder →</a>
+</header>
+
+<main>
+<div class="card">
+  <h3>Look it up</h3>
+  <div class="seg" id="modeSeg">
+    <button data-m="addr" class="on">By address</button>
+    <button data-m="owner">By owner</button>
+  </div>
+  <div class="grid g2" style="margin-bottom:10px">
+    <label class="f"><span>County</span><select class="inp" id="county"></select></label>
+    <label class="f"><span>City <em style="font-style:normal;opacity:.6">— optional</em></span>
+      <select class="inp" id="city"></select></label>
+  </div>
+  <label class="f" style="margin-bottom:10px">
+    <span id="qLabel">Address</span>
+    <input class="inp" id="q" placeholder="1806 Ash Ave" autocomplete="off"
+           autocapitalize="characters" enterkeyhint="search">
+  </label>
+  <div class="row">
+    <button class="btn" id="go">🔎 Search</button>
+    <button class="btn ghost" id="clear">Clear</button>
+  </div>
+  <p class="hint" id="modeHint"></p>
+  <div class="status" id="status"></div>
+</div>
+
+<div id="results"></div>
+<p id="buildTag">Property Search · Build 2026-08-16 · 1 · <a href="#" id="bust">force refresh</a></p>
+</main>
+
+<script>
+"use strict";
+var $=function(i){return document.getElementById(i)};
+var nz=function(v){var n=parseFloat(v);return isFinite(n)?n:0};
+function money(v){var n=Math.round(nz(v));return (n<0?"-$":"$")+Math.abs(n).toLocaleString()}
+function esc(v){return String(v).replace(/'/g,"''")}
+function titleCase(v){
+  return String(v==null?"":v).toLowerCase().replace(/\b([a-z])/g,function(m){return m.toUpperCase()})
+    .replace(/\b(Tx|Ii|Iii|Iv|Llc|Lp|Inc|Po)\b/g,function(m){return m.toUpperCase()}).trim();
+}
+function splitSitus(v){
+  var s=String(v==null?"":v).trim();
+  var m=s.match(/^(.*?),\s*([^,]*),\s*[A-Z]{2}\b/);
+  if(m) return {addr:m[1].trim(),city:m[2].trim()};
+  return {addr:s.replace(/,\s*TX\s*$/i,"").trim(),city:""};
+}
+
+/* ---- the three counties ----------------------------------------------------
+ * Same field maps the Deal Finder uses, verified against each county's live
+ * layer rather than guessed. Two things bite here and are worth stating:
+ *
+ *   Cameron publishes the same table twice under different capitalisation, so
+ *   it carries two field maps and a mirror to fall back to.
+ *
+ *   Starr's obvious endpoint answers every query with an empty feature set —
+ *   the layer is secured and only served through the proxy item below.
+ */
+function cameronFields(upper){
+  var n=function(a,b){return upper?b:a};
+  return {addr:n("situsdispl","situsDispl"),
+    addrParts:[n("situsno","situsNo"),n("sitpfx","sitPfx"),n("sitstr","sitStr"),n("sitsfx","sitSfx")],
+    city:n("sitcity","sitCity"), zip:n("sitzip","sitZip"),
+    owner:"owner", mail:"addr1", mailcity:n("addrcity","addrCity"),
+    mailstate:n("addrstate","addrState"), mailzip:n("addrzip","addrZip"),
+    sqft:n("lvgarea","lvgArea"), year:n("yrbuilt","yrBuilt"), cad:"market",
+    cls:n("statecd","stateCd"), exempt:"exms", pid:n("prop_id","PROP_ID"),
+    geo:n("geo_id","geoID"),
+    deed:{date:n("deeddt","deedDt"), rec:n("deedrecdt","deedRecDt"),
+          type:n("deedtype","deedType"), vol:"volume", page:"page", num:n("docnum","docNum")}};
+}
+
+var SRC={
+ "TX|HIDALGO":{
+   label:"Hidalgo CAD 2026 certified roll",
+   clerk:"hidalgo",
+   q:"https://services9.arcgis.com/dwMDP55HTfoj4n1c/arcgis/rest/services/HCAD_PARCELS_2026/FeatureServer/1/query",
+   f:{addr:"situs", owner:"name", mail:"addrDeliveryLine", mailcity:"addrCity",
+      mailstate:"addrState", mailzip:"addrZip", sqft:"imprvMainArea",
+      year:"imprvActualYearBuilt", cad:"marketValue", cls:"stateCd",
+      exempt:"exemptions", pid:"PROP_ID", geo:"geoID", unit:"taxingUnits",
+      legal:"legalDescription",
+      deed:{date:"deedDt", type:"deedType", num:"instrumentNum"}},
+   f2:{acres:"landTotalAcres", landval:"landValue", imprval:"improvementValue"},
+   link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
+   cities:{"McAllen":"CML","Edinburg":"CEB","Mission":"CMS","Pharr":"CPR","Weslaco":"CWL",
+     "San Juan":"CSJ","Donna":"CDN","Mercedes":"CMC","Alamo":"CAO","Hidalgo":"CHD",
+     "La Joya":"CLJ","Palmview":"CPM","Alton":"CAN"}
+ },
+ "TX|CAMERON":{
+   label:"Cameron CAD 2026 roll",
+   clerk:"cameron",
+   q:"https://cobgis.brownsvilletx.gov/arcgis/rest/services/Hosted/CCAD_Parcels_09082025/FeatureServer/0/query",
+   f:cameronFields(false),
+   alt:{q:"https://services2.arcgis.com/6oaLMZEZlktbQpyi/arcgis/rest/services/CCAD_Parcels_View/FeatureServer/0/query",
+        label:"Cameron CAD 2025 roll (Esri mirror)", f:cameronFields(true)},
+   cities:{"Brownsville":"CBR","Harlingen":"CHG","San Benito":"CSB","La Feria":"CLF",
+     "Los Fresnos":"CLO","South Padre Island":"CSP","Rio Hondo":"CRH","Port Isabel":"CPI"}
+ },
+ "TX|STARR":{
+   label:"Starr CAD parcels",
+   clerk:"starr",
+   q:"https://utility.arcgis.com/usrsvcs/servers/ff05af4293474b45abf39075250efe78/rest/services/StarrCADWebService/FeatureServer/0/query",
+   f:{addrParts:["situs_num","situs_street_prefx","situs_street","situs_street_sufix"],
+      addr:"situs_street", city:"situs_city", zip:"situs_zip",
+      owner:"file_as_name", mail:"addr_line1", mailcity:"addr_city",
+      mailstate:"addr_state", mailzip:"zip", cad:"market",
+      pid:"prop_id", geo:"geo_id", unit:"city", legal:"legal_desc",
+      deed:{date:"Deed_Date", vol:"Volume", page:"Page", num:"Number"}},
+   f2:{acres:"legal_acreage", landval:"land_val", imprval:"imprv_val"},
+   cities:{"Rio Grande City":"RIO GRANDE CITY","Roma":"ROMA","La Grulla":"LA GRULLA",
+     "Escobares":"ESCOBARES"},
+   cityIsText:true,
+   note:"Starr's roll publishes no building square footage or year built."
+ }
+};
+
+/* All three counties run their official public records on the same Kofile
+   platform. No appraisal district anywhere publishes a chain of title — this is
+   where it actually lives. */
+function clerkSearch(key,q){
+  var src=SRC[key]; if(!src||!src.clerk) return "";
+  return "https://"+src.clerk+".tx.publicsearch.us/results?_courtId=&department=RP"+
+         "&limit=50&offset=0&q="+encodeURIComponent(String(q||"").trim())+
+         "&searchOcrText=false&searchType=quickSearch";
+}
+
+/* Counties store the deed date three ways: ISO string, US string, epoch ms. */
+function deedDate(v){
+  if(v==null||v==="") return "";
+  var n=Number(v);
+  if(isFinite(n)&&n>10000000000){var d=new Date(n);return isFinite(d.getTime())?d.toISOString().slice(0,10):""}
+  var s=String(v).trim(), m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return m[0];
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return m[3]+"-"+("0"+m[1]).slice(-2)+"-"+("0"+m[2]).slice(-2);
+  return s.slice(0,10);
+}
+function deedOf(G,a){
+  var d=G&&G.deed; if(!d) return null;
+  var g=function(k){return d[k]?String(a[d[k]]==null?"":a[d[k]]).trim():""};
+  var o={date:deedDate(d.date?a[d.date]:""), rec:deedDate(d.rec?a[d.rec]:""),
+         type:g("type"), vol:g("vol"), page:g("page"), num:g("num")};
+  return (o.date||o.rec||o.num||o.vol)?o:null;
+}
+
+/* ---- aerial: Esri World Imagery, public and keyless ---- */
+var TILE="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/";
+function aerial(lat,lon,z,w,h,cls){
+  if(!isFinite(lat)||!isFinite(lon)) return "";
+  var n=Math.pow(2,z)*256, px=(lon+180)/360*n;
+  var s=Math.max(-0.9999,Math.min(0.9999,Math.sin(lat*Math.PI/180)));
+  var py=(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n;
+  var x0=Math.floor((px-w/2)/256), x1=Math.floor((px+w/2)/256);
+  var y0=Math.floor((py-h/2)/256), y1=Math.floor((py+h/2)/256);
+  var out='<div class="aer '+(cls||"")+'" style="width:'+w+'px;height:'+h+'px">';
+  for(var ty=y0;ty<=y1;ty++) for(var tx=x0;tx<=x1;tx++){
+    out+='<img loading="lazy" decoding="async" alt="" onerror="this.style.display=\'none\'" src="'+TILE+z+'/'+ty+'/'+tx+'" '+
+         'style="left:'+Math.round(w/2-px+tx*256)+'px;top:'+Math.round(h/2-py+ty*256)+'px">';
+  }
+  return out+'<i class="pin"></i></div>';
+}
+
+/* ---- street-level photo ---- */
+function svKey(){
+  try{ if(window.DE_CONFIG&&DE_CONFIG.streetViewKey) return DE_CONFIG.streetViewKey }catch(e){}
+  try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" }
+}
+function streetPhoto(lat,lon,w,h){
+  if(!isFinite(lat)||!isFinite(lon)) return "";
+  var k=svKey();
+  if(!k) return '<div class="sv why">No Street View key on this device. Add one in the Deal Finder’s '+
+                '<i>Street photos</i> panel, or commit it to config.js.</div>';
+  var u="https://maps.googleapis.com/maps/api/streetview?size="+Math.min(640,Math.round(w*2))+
+        "x"+Math.min(640,Math.round(h*2))+"&location="+lat+","+lon+
+        "&fov=78&pitch=8&radius=70&source=outdoor&return_error_code=true&key="+encodeURIComponent(k);
+  return '<div class="sv" data-lat="'+lat+'" data-lon="'+lon+'" style="height:'+h+'px">'+
+         '<img loading="lazy" decoding="async" alt="Street view of the property" '+
+         'onerror="svFail(this)" src="'+u+'"><span class="svc">Google</span></div>';
+}
+function svFail(img){
+  var box=img.parentNode; if(!box) return;
+  img.style.display="none";
+  var c=box.querySelector(".svc"); if(c) c.style.display="none";
+  var lat=box.getAttribute("data-lat"), lon=box.getAttribute("data-lon"), k=svKey();
+  var say=function(h){box.className="sv why";box.removeAttribute("style");box.innerHTML=h};
+  fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+lat+","+lon+
+        "&radius=70&source=outdoor&key="+encodeURIComponent(k))
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(j.status==="ZERO_RESULTS") say("<b>No Street View camera near this parcel.</b> Google has never driven this street.");
+      else if(j.status==="REQUEST_DENIED") say("<b>Google refused the key.</b> "+(j.error_message||""));
+      else say("<b>Google says "+(j.status||"nothing")+".</b> "+(j.error_message||""));
+    }).catch(function(){ say("<b>The Street View request never completed.</b>") });
+}
+function bearing(aLat,aLon,bLat,bLon){
+  var r=Math.PI/180, dl=(bLon-aLon)*r,
+      y=Math.sin(dl)*Math.cos(bLat*r),
+      x=Math.cos(aLat*r)*Math.sin(bLat*r)-Math.sin(aLat*r)*Math.cos(bLat*r)*Math.cos(dl);
+  return (Math.atan2(y,x)/r+360)%360;
+}
+/* A parcel centroid sits mid-lot, often behind the house, where no panorama
+   exists. Resolve the nearest real one and aim it back at the parcel. */
+function tuneSV(card,lat,lon){
+  var a=card.querySelector(".svlink");
+  if(!a||a.dataset.tuned) return;
+  a.dataset.tuned="1";
+  var k=svKey();
+  if(!k||!isFinite(lat)||!isFinite(lon)){ a.textContent="Look it up ↗"; a.classList.add("dim"); return }
+  fetch("https://maps.googleapis.com/maps/api/streetview/metadata?location="+lat+","+lon+
+        "&radius=70&source=outdoor&key="+encodeURIComponent(k))
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(j.status==="OK"&&j.pano_id){
+        var pl=j.location||{}, h=(isFinite(pl.lat)&&isFinite(pl.lng))?bearing(pl.lat,pl.lng,lat,lon):null;
+        a.href="https://www.google.com/maps/@?api=1&map_action=pano&pano="+encodeURIComponent(j.pano_id)+
+               "&viewpoint="+lat+","+lon+(h===null?"":"&heading="+Math.round(h))+"&pitch=5&fov=80";
+        a.classList.remove("dim");
+      }else{ a.textContent="No street view ↗"; a.classList.add("dim") }
+    }).catch(function(){});
+}
+function mapLink(lat,lon){return "https://www.google.com/maps/search/?api=1&query="+lat+","+lon}
+function searchLink(r){
+  var q=[r.address,r.city].filter(Boolean).join(", ");
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||(r.lat+","+r.lon));
+}
+
+/* ---- fetch ---- */
+async function getJSON(u){
+  var r=await fetch(u,{mode:"cors"});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  var j=await r.json();
+  if(j.error) throw new Error(j.error.message||("ArcGIS error "+j.error.code));
+  return j;
+}
+
+/* ---- UI state ---- */
+var MODE="addr", KEY="";
+function fillCounties(){
+  var sel=$("county");
+  Object.keys(SRC).sort().forEach(function(k){
+    var o=document.createElement("option");
+    o.value=k; o.textContent=k.split("|")[1].replace(/\b(\w)(\w*)/g,function(m,a,b){return a+b.toLowerCase()})+" County, "+k.split("|")[0];
+    sel.appendChild(o);
+  });
+  sel.value="TX|HIDALGO";
+}
+function fillCities(){
+  var src=SRC[$("county").value], sel=$("city"), keep=sel.value;
+  sel.innerHTML='<option value="">Any city</option>';
+  Object.keys((src&&src.cities)||{}).forEach(function(c){
+    var o=document.createElement("option"); o.value=c; o.textContent=c; sel.appendChild(o);
+  });
+  sel.value=keep||"";
+}
+function drawMode(){
+  [].forEach.call($("modeSeg").children,function(b){b.classList.toggle("on",b.dataset.m===MODE)});
+  $("qLabel").textContent = MODE==="addr" ? "Address" : "Owner name";
+  $("q").placeholder = MODE==="addr" ? "1806 Ash Ave" : "Garza";
+  $("modeHint").innerHTML = MODE==="addr"
+    ? "Street number and name is enough — the suffix is dropped before searching, because every county spells it differently."
+    : "Surname alone works and finds every parcel that owner holds in the county. Records are filed last name first, so <i>Garza</i> beats <i>Maria Garza</i>.";
+  var src=SRC[$("county").value];
+  if(src&&src.note) $("modeHint").innerHTML+=" <b>"+src.note+"</b>";
+}
+$("modeSeg").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-m]"); if(!b) return;
+  MODE=b.dataset.m; drawMode();
+});
+$("county").onchange=function(){ fillCities(); drawMode() };
+$("clear").onclick=function(){
+  $("q").value=""; $("results").innerHTML=""; $("status").className="status"; $("status").textContent="";
+  empty();
+};
+$("q").addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); $("go").click() } });
+
+var SUFFIXES=/^(ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|LN|LANE|BLVD|BOULEVARD|CT|COURT|CIR|CIRCLE|PL|PLACE|HWY|HIGHWAY|TRL|TRAIL|WAY|PKWY|PARKWAY|APT|UNIT|STE)$/;
+function addrTokens(q){
+  var t=String(q||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ").split(/\s+/).filter(Boolean);
+  var keep=t.filter(function(v,i){return i===0||!SUFFIXES.test(v)});
+  return keep.length?keep:t;
+}
+
+function setStat(h,cls){ var s=$("status"); s.className="status"+(cls?" "+cls:""); s.innerHTML=h }
+
+async function lookup(src,label){
+  var G=src.f||{}, G2=src.f2||{};
+  var raw=$("q").value.trim(), city=$("city").value;
+  var w=[];
+  if(MODE==="addr"){
+    if(!G.addr) throw new Error("That county's layer has no address column.");
+    w.push("UPPER("+G.addr+") LIKE '%"+esc(addrTokens(raw).join("%"))+"%'");
+  }else{
+    if(!G.owner) throw new Error("That county's layer has no owner column.");
+    w.push("UPPER("+G.owner+") LIKE '%"+esc(raw.toUpperCase())+"%'");
+  }
+  if(city){
+    var code=(src.cities||{})[city];
+    if(code&&G.unit) w.push((src.cityIsText?"UPPER("+G.unit+") LIKE '%"+esc(code.toUpperCase())+"%'"
+                                            : G.unit+" LIKE '%"+code+"%'"));
+    else if(G.city) w.push("UPPER("+G.city+") LIKE '%"+esc(city.toUpperCase())+"%'");
+  }
+  var outF=[];
+  for(var k in G){ var v=G[k]; if(!v||k==="deed") continue;
+    if(Object.prototype.toString.call(v)==="[object Array]") outF=outF.concat(v); else outF.push(v); }
+  if(G.deed) for(var dk in G.deed){ if(G.deed[dk]) outF.push(G.deed[dk]) }
+  for(var k2 in G2){ if(G2[k2]) outF.push(G2[k2]) }
+
+  var qp={where:w.join(" AND "), outFields:outF.join(","), returnGeometry:"false",
+          resultRecordCount:"60", f:"json", returnCentroid:"true", outSR:"4326"};
+  var r=await getJSON(src.q+"?"+new URLSearchParams(qp));
+  var fs=r.features||[];
+  return fs.map(function(ft){
+    var a=ft.attributes||{}, ct=ft.centroid||{};
+    var sp=splitSitus(a[G.addr]);
+    if(G.addrParts){
+      var bits=G.addrParts.map(function(kk){return String(a[kk]==null?"":a[kk]).trim()})
+                          .filter(function(x){return x&&x!=="0"});
+      if(bits.length) sp={addr:bits.join(" ").replace(/\s+/g," "),city:""};
+    }
+    var mcity=G.mailcity?String(a[G.mailcity]||"").trim():"";
+    var pcity=(G.city&&a[G.city])?String(a[G.city]).trim():sp.city;
+    var ex=G.exempt?String(a[G.exempt]||"").trim():"";
+    var pid=G.pid?a[G.pid]:"";
+    return {
+      lat:isFinite(ct.y)?ct.y:null, lon:isFinite(ct.x)?ct.x:null,
+      address:titleCase(sp.addr)||"—", city:titleCase(pcity)||city,
+      zip:G.zip?String(a[G.zip]||"").slice(0,5):"",
+      sqft:G.sqft?nz(a[G.sqft]):0, year:G.year?nz(a[G.year]):0, cad:nz(a[G.cad]),
+      acres:G2.acres?nz(a[G2.acres]):0, landval:G2.landval?nz(a[G2.landval]):0,
+      imprval:G2.imprval?nz(a[G2.imprval]):0,
+      cls:G.cls?String(a[G.cls]||"").trim():"",
+      owner:titleCase(a[G.owner]||""),
+      mail:titleCase([a[G.mail],mcity,G.mailstate?a[G.mailstate]:"",G.mailzip?a[G.mailzip]:""].filter(Boolean).join(", ")),
+      mailcity:titleCase(mcity),
+      exempt:ex, homestead:/\bHS\b/i.test(ex),
+      outoftown:!!(mcity&&pcity&&mcity.toUpperCase()!==pcity.toUpperCase()),
+      legal:G.legal?String(a[G.legal]||"").trim():"",
+      deed:deedOf(G,a),
+      pid:pid, geo:G.geo?a[G.geo]:"", link:(src.link&&pid)?src.link(pid):""
+    };
+  });
+}
+
+function titleBlock(r){
+  var h='<div class="fh">Ownership</div>';
+  var L=function(k,v){return '<div class="led"><span class="l">'+k+'</span><b>'+v+'</b></div>'};
+  h+=L("Owner", r.owner||"—");
+  if(r.mail) h+=L("Mails to", r.mail);
+  h+=L("Lives there?", r.homestead
+        ? "Homestead on file — owner-occupied"
+        : "No homestead exemption"+(r.outoftown?" · mails out of town":""));
+  if(r.legal) h+=L("Legal", r.legal);
+  if(r.geo) h+=L("Geographic ID", r.geo);
+  var d=r.deed;
+  if(d){
+    var bits=[];
+    if(d.date) bits.push(d.date);
+    if(d.type) bits.push(d.type);
+    if(d.num) bits.push("inst. "+d.num);
+    if(d.vol&&d.page) bits.push("vol "+d.vol+" pg "+d.page);
+    h+=L("Last deed", bits.join(" · ")||"—");
+    if(d.rec&&d.rec!==d.date) h+=L("Recorded", d.rec);
+  }
+  var byName=clerkSearch(KEY,r.owner), byAddr=clerkSearch(KEY,r.address);
+  var byInst=(d&&d.num)?clerkSearch(KEY,d.num):"";
+  if(byName||byAddr){
+    h+='<div class="phrow" style="margin-top:10px">'+
+       (byName?'<a class="phbtn" href="'+byName+'" target="_blank" rel="noopener">Deeds by owner ↗</a>':'')+
+       (byInst?'<a class="phbtn" href="'+byInst+'" target="_blank" rel="noopener">This instrument ↗</a>':'')+
+       (byAddr?'<a class="phbtn" href="'+byAddr+'" target="_blank" rel="noopener">Deeds by address ↗</a>':'')+
+       '</div>'+
+       '<p class="hint">An appraisal district only ever shows who owns it <i>now</i> and the '+
+       'deed that brought them in. Those buttons open the <b>county clerk’s official public '+
+       'records</b> with the search already filled — that is where the chain of title is, '+
+       'deed by deed, back as far as they have scanned.</p>';
+  }
+  return h;
+}
+
+function card(r,i){
+  var d=document.createElement("div");
+  d.className="rec"+(i===0?" open":"");
+  var box=function(k,v){return '<div><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'};
+  var sub=[];
+  if(r.sqft) sub.push(Math.round(r.sqft).toLocaleString()+" sf");
+  if(r.acres) sub.push(r.acres.toFixed(2)+" ac");
+  if(r.year) sub.push(String(r.year));
+  if(r.city) sub.push(r.city);
+  if(r.cls) sub.push("class "+r.cls);
+  d.innerHTML=
+    '<div class="rhead">'+
+      (r.lat?'<div class="tw">'+aerial(r.lat,r.lon,18,52,52)+'</div>':'')+
+      '<div class="rmain"><div class="raddr">'+r.address+'</div>'+
+      '<div class="rsub">'+(sub.join(" · ")||"county record")+'</div></div>'+
+      '<div class="rval"><b>'+(r.cad?money(r.cad):"—")+'</b><span>county value</span></div>'+
+    '</div>'+
+    '<div class="rbody">'+
+      (r.lat?'<div class="photo">'+streetPhoto(r.lat,r.lon,330,168)+aerial(r.lat,r.lon,19,330,158)+
+        '<div class="phrow">'+
+          '<a class="phbtn svlink" href="'+searchLink(r)+'" target="_blank" rel="noopener">Street View ↗</a>'+
+          '<a class="phbtn" href="'+mapLink(r.lat,r.lon)+'" target="_blank" rel="noopener">Map ↗</a>'+
+          '<span class="phcred">Imagery © Esri, Maxar</span>'+
+        '</div></div>':'')+
+      '<div class="kv">'+
+        box("County value", r.cad?money(r.cad):"—")+
+        box("Land", r.landval?money(r.landval):"—")+
+        box("Improvements", r.imprval?money(r.imprval):"—")+
+        box("Lot", r.acres?r.acres.toFixed(2)+" ac":"—")+
+        box("Building", r.sqft?Math.round(r.sqft).toLocaleString()+" sf":"not published")+
+        box("Year built", r.year?String(r.year):"not published")+
+      '</div>'+
+      titleBlock(r)+
+      (r.link?'<a class="cadlink" href="'+r.link+'" target="_blank" rel="noopener">Open the county record ↗</a>':"")+
+    '</div>';
+  d.onclick=function(e){
+    var t=e&&e.target;
+    if(t&&t.closest&&t.closest("a")) return;
+    var was=d.classList.contains("open");
+    if(was&&!(t&&t.closest&&t.closest(".rhead"))) return;
+    d.classList.toggle("open");
+    if(!was&&r.lat) tuneSV(d,r.lat,r.lon);
+  };
+  return d;
+}
+
+function draw(rows){
+  var res=$("results"); res.innerHTML="";
+  rows.forEach(function(r,i){
+    var d=card(r,i);
+    res.appendChild(d);
+    if(i===0&&r.lat) tuneSV(d,r.lat,r.lon);
+  });
+}
+function empty(){
+  $("results").innerHTML='<div class="card"><div class="empty"><b>Who owns it, and what does the county say</b>'+
+    'Search by address, or by owner name to see everything one person holds in the county. '+
+    'Hidalgo, Cameron and Starr are wired up.<br><br>'+
+    'Every record shows the owner, mailing address, values, the last recorded deed, and a '+
+    'one-tap link into the county clerk’s official records.</div></div>';
+}
+
+$("go").onclick=async function(){
+  var raw=$("q").value.trim();
+  if(!raw){ setStat(MODE==="addr"?"Type an address first.":"Type an owner name first.","err"); return }
+  KEY=$("county").value;
+  var src=SRC[KEY];
+  $("go").disabled=true;
+  setStat('<span class="spin"></span>Searching '+(src.label||"the county roll")+'…');
+  var rows=null, used=src;
+  try{ rows=await lookup(src,src.label); }
+  catch(e1){
+    if(src.alt){
+      setStat('<span class="spin"></span>That server didn’t answer — trying the mirror…');
+      try{ used=src.alt; rows=await lookup(src.alt,src.alt.label); }
+      catch(e2){ setStat("Neither Cameron endpoint answered: "+(e2.message||e2),"err"); $("go").disabled=false; return }
+    }else{
+      setStat("The county server didn’t answer: "+(e1.message||e1),"err"); $("go").disabled=false; return;
+    }
+  }
+  $("go").disabled=false;
+  if(!rows.length){
+    setStat(MODE==="addr"
+      ? "<b>No parcel matched.</b> Counties keep their own spelling — try just the number and "+
+        "street name, drop any unit number, and check the city filter isn’t excluding it."
+      : "<b>No owner matched.</b> Records are filed last name first and often without punctuation. "+
+        "Try the surname on its own.","err");
+    $("results").innerHTML=""; empty(); return;
+  }
+  rows.sort(function(a,b){return nz(b.cad)-nz(a.cad)});
+  draw(rows);
+  var total=rows.reduce(function(s,r){return s+nz(r.cad)},0);
+  setStat("<b>"+rows.length+" parcel"+(rows.length>1?"s":"")+"</b> in "+(used.label||"the roll")+
+          (MODE==="owner"&&rows.length>1?" · "+money(total)+" of county value between them":"")+
+          (rows.length>=60?" · showing the first 60":"")+".","ok");
+  window.scrollTo({top:$("results").offsetTop-70,behavior:"smooth"});
+};
+
+$("bust").onclick=async function(e){
+  e.preventDefault();
+  try{
+    if("caches" in window){ var ks=await caches.keys(); await Promise.all(ks.map(function(k){return caches.delete(k)})) }
+    if(navigator.serviceWorker){ var rs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(rs.map(function(r){return r.unregister()})) }
+  }catch(err){}
+  location.reload(true);
+};
+
+fillCounties(); fillCities(); drawMode(); empty();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
+</script>
+</body>
+</html>
