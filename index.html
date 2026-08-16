@@ -286,7 +286,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=20" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=21" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -331,6 +331,7 @@ label.f.sm2 .inp{padding:8px 9px}
     <button class="pt" data-t="comm">Commercial</button>
   </div>
   <p id="ptHint"></p>
+  <p id="boxNote" style="font-size:11.5px;color:var(--txt3);margin:-6px 0 10px;line-height:1.5"></p>
   <div class="grid g3" id="landBox" style="display:none">
     <label class="f"><span>Min acres</span><input class="inp" type="number" step="0.01" id="f_acmin" value="0.08"></label>
     <label class="f"><span>Max acres</span><input class="inp" type="number" step="0.01" id="f_acmax" value="20"></label>
@@ -344,6 +345,9 @@ label.f.sm2 .inp{padding:8px 9px}
     <label class="f pre"><span>Min ARV</span><input class="inp" type="number" id="f_arvmin" value="185000"></label>
     <label class="f pre"><span>Max ARV</span><input class="inp" type="number" id="f_arvmax" value="240000"></label>
   </div>
+  <p style="font-size:11.5px;color:var(--txt3);margin:10px 0 0;line-height:1.5">
+    Empty means no limit. The presets above are a McAllen single-family flip — they
+    are wrong for a warehouse, so switching type clears them.</p>
 </div>
 
 <div class="card">
@@ -484,7 +488,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 20 · property types: houses, mobile, multifamily, land, commercial · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 21 · buy box is per type, blank means no limit · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -682,19 +686,37 @@ function opts(){
     perac:$("f_perac").value, acmin:$("f_acmin").value, acmax:$("f_acmax").value,
     bench:0};
 }
+/* A blank box is not a zero. It means "don't filter on this at all" — which is
+   the only sane default once the same buy box has to serve a 1,400 sf house and
+   a 40,000 sf warehouse. Returns null when the field is empty. */
+function lim(id){
+  var el=$(id); if(!el) return null;
+  var v=String(el.value==null?"":el.value).trim();
+  if(v==="") return null;
+  var n=parseFloat(v);
+  return isFinite(n)?n:null;
+}
 function inBox(r){
   var sq=nz(r.sqft), yr=nz(r.year);
   if(PT==="land"){
     /* a vacant lot has no living area and no year built \u2014 judging it by the
        house buy box is how land quietly disappeared from every search */
-    var ac=nz(r.acres);
-    if(ac&&(ac<nz($("f_acmin").value)||ac>nz($("f_acmax").value))) return false;
+    var ac=nz(r.acres), b;
+    if(ac){
+      if((b=lim("f_acmin"))!==null&&ac<b) return false;
+      if((b=lim("f_acmax"))!==null&&ac>b) return false;
+    }
     var zl=$("f_zips").value.split(",").map(function(z){return z.trim()}).filter(Boolean);
     if(zl.length&&r.zip&&zl.indexOf(String(r.zip).trim())<0) return false;
     return true;
   }
-  if(sq<nz($("f_sqmin").value)||sq>nz($("f_sqmax").value)) return false;
-  if(yr&&(yr<nz($("f_yrmin").value)||yr>nz($("f_yrmax").value))) return false;
+  var a;
+  if((a=lim("f_sqmin"))!==null&&sq<a) return false;
+  if((a=lim("f_sqmax"))!==null&&sq>a) return false;
+  if(yr){
+    if((a=lim("f_yrmin"))!==null&&yr<a) return false;
+    if((a=lim("f_yrmax"))!==null&&yr>a) return false;
+  }
   var zips=$("f_zips").value.split(",").map(function(z){return z.trim()}).filter(Boolean);
   if(zips.length&&r.zip&&zips.indexOf(String(r.zip).trim())<0) return false;
   return true;
@@ -1256,15 +1278,35 @@ async function runLive(quiet){
          `types` map falls back to whatever single class list it was born with,
          which keeps hand-added counties working unchanged. */
       var cls=(source.types&&source.types[PT])||(PT==="house"?source.classes:null);
+      /* Every bound is optional. An empty box adds no clause at all — this is
+         what was silently killing commercial: a house-shaped buy box of
+         1,250-1,700 sf and a $240k ceiling excludes essentially every
+         warehouse, office and retail building in the county, so the query came
+         back empty and looked like the feature was broken. */
+      var lo,hi;
       if(!land){
-        if(G.sqft) w.push(G.sqft+" BETWEEN "+nz($("f_sqmin").value)+" AND "+nz($("f_sqmax").value));
-        if(G.year) w.push(G.year+" BETWEEN "+nz($("f_yrmin").value)+" AND "+nz($("f_yrmax").value));
-        if(G.cad)  w.push(G.cad+" BETWEEN 15000 AND "+Math.round(nz($("f_arvmax").value)));
+        if(G.sqft){
+          if((lo=lim("f_sqmin"))!==null) w.push(G.sqft+" >= "+lo);
+          if((hi=lim("f_sqmax"))!==null) w.push(G.sqft+" <= "+hi);
+        }
+        if(G.year){
+          if((lo=lim("f_yrmin"))!==null) w.push(G.year+" >= "+lo);
+          if((hi=lim("f_yrmax"))!==null) w.push(G.year+" <= "+hi);
+        }
+        if(G.cad){
+          if((hi=lim("f_arvmax"))!==null) w.push(G.cad+" <= "+Math.round(hi));
+          /* with no ceiling given, still skip $0 and exempt rows or the first
+             3,000 records are all worthless slivers */
+          w.push(G.cad+" > "+(lim("f_arvmin")!==null?Math.round(Math.min(15000,lim("f_arvmin"))):1000));
+        }
       }else{
         /* lots have neither living area nor a year built; asking for them by
            those columns returns nothing at all */
-        if(G2.acres) w.push(G2.acres+" BETWEEN "+nz($("f_acmin").value)+" AND "+nz($("f_acmax").value));
-        if(G.cad)    w.push(G.cad+" > 500");
+        if(G2.acres){
+          if((lo=lim("f_acmin"))!==null) w.push(G2.acres+" >= "+lo);
+          if((hi=lim("f_acmax"))!==null) w.push(G2.acres+" <= "+hi);
+        }
+        if(G.cad) w.push(G.cad+" > 500");
       }
       if(cls&&G.cls) w.push(G.cls+" IN ("+cls+")");
       var code=null;
@@ -2037,11 +2079,38 @@ function drawPT(){
   $("ptHint").innerHTML=d.hint+extra;
   $("landBox").style.display = PT==="land"?"grid":"none";
   $("bbGrid").style.display  = PT==="land"?"none":"grid";
+  $("boxNote").textContent = PT==="house"
+    ? "Leave any box empty and it stops filtering on that."
+    : "All empty — nothing is filtered until you fill something in. Type limits here if you want them.";
+}
+/* Each type remembers its own buy box. The house presets are real presets,
+   tuned to a McAllen flip. Every other type starts EMPTY, because there is no
+   such thing as a sensible default square footage for "commercial" — and a
+   leftover house filter silently returns nothing, which reads as a broken
+   feature rather than an over-tight search. */
+var BOXFIELDS=["f_sqmin","f_sqmax","f_yrmin","f_yrmax","f_arvmin","f_arvmax"];
+var BOX={
+  house:{f_sqmin:"1250",f_sqmax:"1700",f_yrmin:"1965",f_yrmax:"1995",
+         f_arvmin:"185000",f_arvmax:"240000"},
+  mobile:{}, multi:{}, land:{}, comm:{}
+};
+function saveBox(t){
+  BOX[t]=BOX[t]||{};
+  BOXFIELDS.forEach(function(id){ var e=$(id); if(e) BOX[t][id]=e.value; });
+}
+function loadBox(t){
+  BOXFIELDS.forEach(function(id){
+    var e=$(id); if(!e) return;
+    e.value=(BOX[t]&&BOX[t][id]!=null)?BOX[t][id]:"";
+    e.placeholder="any";
+  });
 }
 function setPT(t){
   if(!PTYPE[t]||!ptSupported(t)) return;
   if(t===PT) return;
+  saveBox(PT);
   PT=t;
+  loadBox(t);
   drawPT();
   clearList();                 // a stale ranking under a new model is a lie
   setStatSafe();
