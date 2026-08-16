@@ -25,8 +25,4 @@
  * Set a budget alert anyway.
  */
 window.DE_CONFIG = {
-  streetViewKey: ""
-};
-window.DE_CONFIG = {
-  streetViewKey: ""
-};
+  streetViewKey: "AIzaSyCGX0yhftlouLhO9btLzb3YKgecE1zCQJk"
