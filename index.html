@@ -82,7 +82,9 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
  font-style:normal;color:#fff;background:rgba(26,36,56,.74);border-radius:8px 0 7px 0;letter-spacing:-.02em}
 .deal.t1 .rk{background:var(--acc)}
 .dmain{min-width:0}
-.dmain .addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the badge must survive the truncation, so only the street text clips */
+.dmain .addr{display:flex;align-items:center;overflow:hidden}
+.dmain .addr .at{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dmain .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rank{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:var(--mono);
  font-size:13px;font-weight:750;background:var(--bg2);border:1px solid var(--line2);color:var(--txt3)}
@@ -222,10 +224,25 @@ label.f.sm2 .inp{padding:8px 9px}
  background:rgba(18,120,90,.10);color:var(--good);border:1px solid rgba(18,120,90,.26)}
 .pip.no{background:var(--bg2);color:var(--txt3);border-color:var(--line)}
 
-.fl{display:inline-block;vertical-align:2px;margin-left:7px;font-size:9px;font-weight:800;
+.fl{flex:none;display:inline-block;margin-left:7px;font-size:9px;font-weight:800;
  letter-spacing:.05em;padding:2px 5px;border-radius:4px;font-family:var(--mono)}
 .fl.sale{background:rgba(233,120,42,.14);color:var(--acc2);border:1px solid rgba(233,120,42,.34)}
 .fl.tax{background:rgba(192,57,47,.12);color:var(--bad);border:1px solid rgba(192,57,47,.30)}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{position:relative;display:inline-flex}
+/* the box itself is the tap target, laid over the chip — keeps it reachable
+   by screen readers and by a thumb, rather than relying on the label alone */
+.chip input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
+.chip span{display:inline-block;font-size:12.5px;font-weight:650;padding:8px 12px;border-radius:999px;
+ background:var(--bg2);border:1px solid var(--line);color:var(--txt2);cursor:pointer;
+ transition:background .12s,border-color .12s,color .12s;user-select:none}
+.chip input:checked+span{background:var(--acc);border-color:var(--acc);color:#16203a}
+.chip input:focus-visible+span{outline:2px solid var(--acc2);outline-offset:2px}
+.chip span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:6px;
+ vertical-align:-2px;border:1.5px solid var(--line2);border-radius:3.5px;background:var(--card)}
+.chip input:checked+span::before{background:#16203a;border-color:#16203a;
+ box-shadow:inset 0 0 0 2px var(--acc)}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -388,8 +405,20 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 
+<div class="card" id="filterCard" style="display:none">
+  <h3>Show only <span class="tag" id="fCount"></span></h3>
+  <div class="chips">
+    <label class="chip"><input type="checkbox" id="ck_sale"><span>For sale</span></label>
+    <label class="chip"><input type="checkbox" id="ck_tax"><span>Tax sale</span></label>
+    <label class="chip"><input type="checkbox" id="ck_abs"><span>Absentee</span></label>
+    <label class="chip"><input type="checkbox" id="ck_out"><span>Out-of-town owner</span></label>
+    <label class="chip"><input type="checkbox" id="ck_stamp"><span>45+ score</span></label>
+    <label class="chip"><input type="checkbox" id="ck_cf"><span>Cash flows</span></label>
+    <label class="chip"><input type="checkbox" id="ck_photo"><span>Has a photo</span></label>
+  </div>
+</div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 11 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 12 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -533,9 +562,33 @@ function reseed(p){
 /* ---- render ---- */
 var LIST=[];
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
+var RAW=[], LABEL="";
+var FILTERS=[
+  ["ck_sale", function(p){ return p.flag&&p.flag.sale }],
+  ["ck_tax",  function(p){ return p.flag&&p.flag.tax }],
+  ["ck_abs",  function(p){ return String(p.absentee).toUpperCase()==="Y" }],
+  ["ck_out",  function(p){ return !!p.outoftown }],
+  ["ck_stamp",function(p){ return p.score>=45 }],
+  ["ck_cf",   function(p){ return p.cfMo>0 }],
+  ["ck_photo",function(p){ return isFinite(p.lat) && p.lat!==null }]
+];
+function activeFilters(){
+  return FILTERS.filter(function(f){ var e=$(f[0]); return e&&e.checked });
+}
 function render(rows,label,jump){
   var o=opts();
-  var out=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
+  RAW=rows; LABEL=label;
+  var all=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
+  var on=activeFilters();
+  /* every ticked box must hold, not any of them — otherwise "for sale" plus
+     "absentee" would widen the list instead of narrowing it */
+  var out=on.length ? all.filter(function(p){
+      for(var i=0;i<on.length;i++){ if(!on[i][1](p)) return false }
+      return true;
+    }) : all;
+  $("filterCard").style.display = all.length ? "block" : "none";
+  $("fCount").textContent = on.length ? out.length.toLocaleString()+" of "+all.length.toLocaleString()
+                                      : all.length.toLocaleString()+" in the list";
   out.sort(function(a,b){
     var fa=(a.flag?1:0), fb=(b.flag?1:0);
     return b.score-a.score || fb-fa || b.spread-a.spread;
@@ -544,8 +597,14 @@ function render(rows,label,jump){
   $("cnt").textContent=out.length?out.length+" ranked":"";
   var box=$("results");
   if(!out.length){
-    box.innerHTML='<div class="card"><div class="empty"><b>Nothing matched</b>No parcels fit that buy box. Widen the sq ft or year range, or clear the ZIP filter.</div></div>';
-    $("footT").textContent="No matches";$("footM").textContent="—";return;
+    box.innerHTML= on.length
+      ? '<div class="card"><div class="empty"><b>Nothing left after those filters</b>'+
+        all.length.toLocaleString()+' parcels are in the list, none of them tick every box you have on. '+
+        'Untick one.</div></div>'
+      : '<div class="card"><div class="empty"><b>Nothing matched</b>No parcels fit that buy box. '+
+        'Widen the sq ft or year range, or clear the ZIP filter.</div></div>';
+    $("footT").textContent = on.length ? "Filtered to none" : "No matches";
+    $("footM").textContent="—"; return;
   }
   var live=out.filter(function(p){return p.score>=45&&p.offer>0});
   $("footT").textContent=label+" · "+live.length+" worth a stamp";
@@ -564,7 +623,7 @@ function render(rows,label,jump){
       '<div class="dhead">'+
       (p.lat ? '<div class="tw">'+aerial(p.lat,p.lon,18,52,52,"thumb")+'<i class="rk">'+(i+1)+'</i></div>'
              : '<div class="rank">'+(i+1)+'</div>')+
-      '<div class="dmain"><div class="addr">'+p.address+
+      '<div class="dmain"><div class="addr"><span class="at">'+p.address+'</span>'+
         (p.flag&&p.flag.sale?'<span class="fl sale">FOR SALE</span>':'')+
         (p.flag&&p.flag.tax?'<span class="fl tax">TAX SALE</span>':'')+'</div>'+
       '<div class="sub">'+Math.round(p.sqft).toLocaleString()+' sf'+(p.year?" · "+p.year:"")+(p.zip?" · "+p.zip:"")+'</div>'+
@@ -621,7 +680,8 @@ function render(rows,label,jump){
   if(jump) window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
 }
 function clearList(){
-  LIST=[]; $("results").innerHTML=""; $("cnt").textContent="";
+  LIST=[]; RAW=[]; $("results").innerHTML=""; $("cnt").textContent="";
+  $("filterCard").style.display="none";
   $("footT").textContent="No list"; $("footM").textContent="\u2014";
 }
 function whyText(p){
@@ -1104,13 +1164,13 @@ $("ncSave").onclick=function(){
     try{ localStorage.setItem("de_svkey",v) }catch(e){}
     $("svStatus").className="status ok";
     $("svStatus").textContent = v ? "Saved. Open any property to see it." : "Cleared.";
-    if(LIST.length) render(LIST.map(reseed),"Re-ranked");
+    if(RAW.length) render(RAW,LABEL,false);
   };
   $("svClear").onclick=function(){
     try{ localStorage.removeItem("de_svkey") }catch(e){}
     $("sv_key").value=""; $("svStatus").className="status";
     $("svStatus").textContent="Removed.";
-    if(LIST.length) render(LIST.map(reseed),"Re-ranked");
+    if(RAW.length) render(RAW,LABEL,false);
   };
 })();
 
@@ -1383,6 +1443,15 @@ $("bustCache").onclick=async function(e){
   location.reload(true);
 };
 
+
+/* the filter chips: display-time only, so nothing is ever thrown away */
+FILTERS.forEach(function(f){
+  var el=$(f[0]); if(!el) return;
+  el.addEventListener("change",function(){
+    if(RAW.length) render(RAW,LABEL,false);
+  });
+});
+
 /* recompute on any input change if a list is already up */
 /* the where-fields change what you search, not how it scores — they must not
    re-rank a list that is already on screen */
@@ -1391,7 +1460,7 @@ var NORERANK={f_county:1,f_city:1,f_countyOther:1,f_cityOther:1,f_zips:1,f_state
 document.querySelectorAll(".inp").forEach(function(i){
   if(NORERANK[i.id]||/^ncf_/.test(i.id)) return;
   i.addEventListener("change",function(){
-    if(LIST.length) render(LIST.map(reseed),"Re-ranked");
+    if(RAW.length) render(RAW,LABEL,false);
   });
 });
 /* Nothing runs on arrival. Set the county, the city and your numbers, then ask. */
