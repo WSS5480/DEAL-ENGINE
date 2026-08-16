@@ -221,6 +221,11 @@ label.f.sm2 .inp{padding:8px 9px}
 .pip{font-size:9.5px;font-weight:750;letter-spacing:.03em;padding:3px 6px;border-radius:5px;
  background:rgba(18,120,90,.10);color:var(--good);border:1px solid rgba(18,120,90,.26)}
 .pip.no{background:var(--bg2);color:var(--txt3);border-color:var(--line)}
+
+.fl{display:inline-block;vertical-align:2px;margin-left:7px;font-size:9px;font-weight:800;
+ letter-spacing:.05em;padding:2px 5px;border-radius:4px;font-family:var(--mono)}
+.fl.sale{background:rgba(233,120,42,.14);color:var(--acc2);border:1px solid rgba(233,120,42,.34)}
+.fl.tax{background:rgba(192,57,47,.12);color:var(--bad);border:1px solid rgba(192,57,47,.30)}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -293,7 +298,7 @@ label.f.sm2 .inp{padding:8px 9px}
 </div>
 
 <div class="card">
-  <h3>Where the list comes from</h3>
+  <h3>Where the list comes from <span class="tag" id="flagTag"></span></h3>
   <div class="seg" id="srcSeg">
     <button data-s="live" class="on">Live county</button>
     <button data-s="paste">Paste list</button>
@@ -384,7 +389,7 @@ label.f.sm2 .inp{padding:8px 9px}
 </div>
 
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-15 · 9 · county search · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 10 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -457,9 +462,10 @@ function analyse(r,o){
     spread:anchor-P,cut:anchor>0?(anchor-P)/anchor:0,profit:profit,
     margin:arv>0?profit/arv:0,cashIn:cashIn,rent:rent,cfMo:noi/12-mo,anchor:anchor,
     owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
-    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",link:r.link||"",mailcity:r.mailcity||"",
-    lat:r.lat,lon:r.lon};
+    outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon};
   p.absentee=r.absentee||"";
+  p.flag=flagFor(p);
   p.score=score(p,o);
   p.flags=[];
   if(p.rehab>nz(o.rehabmax)) p.flags.push("rehab over your ceiling");
@@ -521,7 +527,7 @@ function mapLink(lat,lon){
 function reseed(p){
   return {address:p.address,city:p.city,zip:p.zip,sqft:p.sqft,year:p.year,cad:p.cad,
     owner:p.owner,mail:p.mail,absentee:p.absentee,outoftown:p.outoftown,exempt:p.exempt,
-    pid:p.pid,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon};
+    pid:p.pid,geo:p.geo,link:p.link,mailcity:p.mailcity,lat:p.lat,lon:p.lon};
 }
 
 /* ---- render ---- */
@@ -530,7 +536,10 @@ var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
 function render(rows,label,jump){
   var o=opts();
   var out=rows.map(function(r){return analyse(r,o)}).filter(Boolean);
-  out.sort(function(a,b){return b.score-a.score||b.spread-a.spread});
+  out.sort(function(a,b){
+    var fa=(a.flag?1:0), fb=(b.flag?1:0);
+    return b.score-a.score || fb-fa || b.spread-a.spread;
+  });
   LIST=out;
   $("cnt").textContent=out.length?out.length+" ranked":"";
   var box=$("results");
@@ -555,7 +564,9 @@ function render(rows,label,jump){
       '<div class="dhead">'+
       (p.lat ? '<div class="tw">'+aerial(p.lat,p.lon,18,52,52,"thumb")+'<i class="rk">'+(i+1)+'</i></div>'
              : '<div class="rank">'+(i+1)+'</div>')+
-      '<div class="dmain"><div class="addr">'+p.address+'</div>'+
+      '<div class="dmain"><div class="addr">'+p.address+
+        (p.flag&&p.flag.sale?'<span class="fl sale">FOR SALE</span>':'')+
+        (p.flag&&p.flag.tax?'<span class="fl tax">TAX SALE</span>':'')+'</div>'+
       '<div class="sub">'+Math.round(p.sqft).toLocaleString()+' sf'+(p.year?" · "+p.year:"")+(p.zip?" · "+p.zip:"")+'</div>'+
       '<div class="bar"><i style="width:'+Math.max(2,p.score)+'%;background:var(--'+cls+')"></i></div></div>'+
       '<div class="dright"><div class="off" style="color:var(--'+cls+')">'+(p.offer>0?money(p.offer):"no deal")+'</div>'+
@@ -577,6 +588,20 @@ function render(rows,label,jump){
         '<div><div class="k">Rent est.</div><div class="v">'+money(p.rent)+'</div></div>'+
         '<div><div class="k">Rental CF</div><div class="v '+(p.cfMo>0?"pos":"neg")+'">'+money(p.cfMo)+'</div></div>'+
         '</div>'+
+        (p.flag&&p.flag.sale?
+          '<div class="note warn"><b>Listed for sale at '+money(p.flag.sale.price)+'</b>'+
+          (p.flag.sale.days?' · '+p.flag.sale.days+' days on market':'')+
+          (p.flag.sale.status?' · '+p.flag.sale.status:'')+'. '+
+          (p.flag.sale.price>p.offer
+            ? 'That is '+money(p.flag.sale.price-p.offer)+' above your walk-in number, so it only works if they come down. '
+            : 'That is at or under your walk-in number — worth a call today. ')+
+          'Someone already has this one in front of buyers.</div>':'')+
+        (p.flag&&p.flag.tax?
+          '<div class="note bad"><b>On the tax resale list</b>'+
+          (p.flag.tax.min?' · minimum bid '+money(p.flag.tax.min):'')+
+          (p.flag.tax.cause?' · cause '+p.flag.tax.cause:'')+
+          '. The county is selling it for back taxes. Different process entirely — you bid at auction, '+
+          'usually sight unseen, and you inherit whatever is on it.</div>':'')+
         '<div class="led"><span class="l">70% rule</span><b>'+money(p.rule)+'</b></div>'+
         '<div class="led"><span class="l">Profit-backed</span><b>'+money(p.backed)+'</b></div>'+
         '<div class="led tot"><span class="l">Walk in at</span><b class="'+(p.offer>0?"pos":"neg")+'">'+money(p.offer)+'</b></div>'+
@@ -694,7 +719,8 @@ function cameronFields(upper){
           owner:"owner", mail:"addr1", mailcity:n("addrcity","addrCity"),
           mailstate:n("addrstate","addrState"), mailzip:n("addrzip","addrZip"),
           sqft:n("lvgarea","lvgArea"), year:n("yrbuilt","yrBuilt"), cad:"market",
-          cls:n("statecd","stateCd"), exempt:"exms", pid:n("prop_id","PROP_ID"), unit:"city"};
+          cls:n("statecd","stateCd"), exempt:"exms", pid:n("prop_id","PROP_ID"),
+          geo:n("geo_id","geoID"), unit:"city"};
 }
 
 var SRC={
@@ -703,7 +729,7 @@ var SRC={
    label:"Hidalgo CAD 2026 certified roll",
    f:{addr:"situs",owner:"name",mail:"addrDeliveryLine",mailcity:"addrCity",mailstate:"addrState",
       mailzip:"addrZip",sqft:"imprvMainArea",year:"imprvActualYearBuilt",cad:"marketValue",
-      cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",unit:"taxingUnits"},
+      cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",geo:"geoID",unit:"taxingUnits"},
    link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
    classes:"'A1','A2'",
    order:"marketValue ASC",
@@ -884,7 +910,7 @@ async function runLive(quiet){
             mailcity:titleCase(mcity),
             exempt:ex||(G.exempt?"none on file":""),
             absentee:homestead?"N":"Y",outoftown:away,
-            pid:pid,link:(source.link&&pid)?source.link(pid):""
+            pid:pid,geo:G.geo?a[G.geo]:"",link:(source.link&&pid)?source.link(pid):""
           });
         });
         offset+=fs.length;
@@ -952,7 +978,7 @@ function streetPhoto(lat,lon,w,h){
 
 /* ---- counties you add yourself --------------------------------------------
    Same shape as the hand-mapped entries in SRC, just kept on the phone.       */
-var MAPKEYS=[["addr","Address"],["owner","Owner"],["mail","Mailing address"],
+var MAPKEYS=[["addr","Address"],["geo","Geographic ID"],["owner","Owner"],["mail","Mailing address"],
   ["mailcity","Mailing city"],["mailstate","Mailing state"],["mailzip","Mailing ZIP"],
   ["sqft","Living sq ft"],["year","Year built"],["cad","Market value"],
   ["cls","Class code"],["exempt","Exemptions"],["pid","Parcel ID"],
@@ -1251,6 +1277,47 @@ function useHit(g){
   sel.innerHTML=STATES.map(function(a){return '<option value="'+a[0]+'">'+a[1]+'</option>'}).join("");
   sel.value="TX";
 })();
+
+
+/* ---- for-sale and distress flags ------------------------------------------
+   Asking price is MLS territory and no public record carries it — Texas is a
+   non-disclosure state. So a scheduled job outside the app writes flags.json,
+   and the page just reads it. That keeps the listing API key off the phone,
+   which its licence requires, and costs nothing to serve.
+
+   Joined on the CAD Geographic ID where we have it — the tax-sale lists key on
+   that, NOT on PROP_ID. Address is the fallback.                             */
+var FLAGS={byGeo:{},byAddr:{},generated:null,loaded:false};
+function normKey(a,z){
+  return String(a||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ")
+    .replace(/\b(STREET|ST|AVENUE|AVE|ROAD|RD|DRIVE|DR|LANE|LN|BOULEVARD|BLVD|COURT|CT|CIRCLE|CIR|PLACE|PL|HIGHWAY|HWY)\b/g,"")
+    .replace(/\s+/g," ").trim()+(z?"|"+String(z).slice(0,5):"");
+}
+function normGeo(g){ return String(g||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+async function loadFlags(){
+  try{
+    var r=await fetch("flags.json",{cache:"no-cache"});
+    if(!r.ok) return;
+    var j=await r.json();
+    FLAGS.byGeo=j.byGeo||{}; FLAGS.byAddr=j.byAddr||{};
+    FLAGS.generated=j.generated||null; FLAGS.loaded=true;
+    var n=Object.keys(FLAGS.byGeo).length+Object.keys(FLAGS.byAddr).length;
+    if(n) $("flagTag").textContent=n.toLocaleString()+" flagged · "+(FLAGS.generated||"").slice(0,10);
+  }catch(e){}
+}
+function flagFor(p){
+  if(!FLAGS.loaded) return null;
+  var g = p.geo && FLAGS.byGeo[normGeo(p.geo)];
+  /* zip first because a bare street match can collide across towns; but a lot
+     of county records carry no property zip at all, so fall back to it */
+  var a = FLAGS.byAddr[normKey(p.address,p.zip)] || FLAGS.byAddr[normKey(p.address,"")];
+  if(!g && !a) return null;
+  var out={};
+  if(a) for(var k in a) out[k]=a[k];
+  if(g) for(var k2 in g) out[k2]=g[k2];
+  return out;
+}
+loadFlags();
 
 mergeCounties();
 

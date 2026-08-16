@@ -8,7 +8,7 @@
  *   aerial tiles     cache first                      — imagery from 2024 is
  *                                                       the same imagery today
  */
-var VERSION = "de-2026-08-15-i";
+var VERSION = "de-2026-08-16-j";
 var SHELL   = VERSION + "-shell";
 var TILES   = "de-tiles";
 var TILE_MAX = 400;               // roughly 25 MB of imagery, then oldest go
@@ -75,6 +75,9 @@ self.addEventListener("fetch", function (e) {
     );
     return;
   }
+
+  /* the flag file is the freshest thing in the app — never serve it from cache */
+  if (url.pathname.endsWith("/flags.json")) return;
 
   if (url.origin !== self.location.origin) return;
 

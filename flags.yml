@@ -1,0 +1,44 @@
+name: Refresh property flags
+
+# Rebuilds flags.json — for-sale prices and tax-resale listings — and commits it.
+# The Deal Finder fetches that file at load. Running it here rather than in the
+# browser is what keeps the RentCast key confidential, which its licence requires.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"        # 09:17 UTC daily, ~4am Valley time
+  workflow_dispatch:            # and a Run workflow button, for right now
+
+permissions:
+  contents: write
+
+jobs:
+  flags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the PDF reader
+        run: pip install --quiet pdfplumber
+
+      - name: Build flags.json
+        env:
+          RENTCAST_KEY: ${{ secrets.RENTCAST_KEY }}
+        run: |
+          python3 tools/build_flags.py \
+            --cities "McAllen,Edinburg,Mission,Pharr,Weslaco,Brownsville,Harlingen,San Benito" \
+            --state TX \
+            --out flags.json
+
+      - name: Commit if anything moved
+        run: |
+          git config user.name  "flags-bot"
+          git config user.email "flags-bot@users.noreply.github.com"
+          git add flags.json
+          # nothing changed is the normal case, and must not fail the run
+          git diff --staged --quiet || git commit -m "flags: refresh $(date -u +%Y-%m-%d)"
+          git push
