@@ -243,6 +243,7 @@ label.f.sm2 .inp{padding:8px 9px}
  vertical-align:-2px;border:1.5px solid var(--line2);border-radius:3.5px;background:var(--card)}
 .chip input:checked+span::before{background:#16203a;border-color:#16203a;
  box-shadow:inset 0 0 0 2px var(--acc)}
+.fh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin:14px 0 8px;font-weight:750}
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -320,6 +321,7 @@ label.f.sm2 .inp{padding:8px 9px}
     <button data-s="live" class="on">Live county</button>
     <button data-s="paste">Paste list</button>
     <button data-s="demo">Demo</button>
+    <button data-s="flag">Flagged</button>
   </div>
 
   <div id="src-live" class="sb" style="margin-top:12px">
@@ -398,6 +400,14 @@ label.f.sm2 .inp{padding:8px 9px}
     <div class="status" id="csvStatus"></div>
   </div>
 
+  <div id="src-flag" class="sb" style="display:none;margin-top:12px">
+    <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px;line-height:1.55">
+      Everything in <b>flags.json</b>, straight up — no buy box, no filtering. Most tax-sale
+      properties are raw land with no square footage, so they will never surface in a ranked
+      list built for houses. This is where you actually look at them.</p>
+    <div id="flagList"></div>
+  </div>
+
   <div id="src-demo" class="sb" style="display:none;margin-top:12px">
     <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px;line-height:1.55">
       24 representative McAllen parcels so you can see exactly how the ranking behaves before wiring real data.</p>
@@ -418,7 +428,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 12 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 13 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -700,7 +710,8 @@ function whyText(p){
 $("srcSeg").onclick=function(e){
   var b=e.target.closest("button[data-s]"); if(!b) return;
   [].forEach.call($("srcSeg").children,function(x){x.classList.toggle("on",x===b)});
-  ["live","paste","demo"].forEach(function(s){$("src-"+s).style.display=(s===b.dataset.s?"block":"none")});
+  ["live","paste","demo","flag"].forEach(function(s){$("src-"+s).style.display=(s===b.dataset.s?"block":"none")});
+  if(b.dataset.s==="flag") drawFlagList();
 };
 $("btnLayer").onclick=function(){var b=$("layerBox");b.style.display="block";b.open=true};
 $("btnTop").onclick=function(){window.scrollTo({top:0,behavior:"smooth"})};
@@ -1382,6 +1393,60 @@ function flagFor(p){
   return out;
 }
 loadFlags();
+
+
+/* ---- the flag file, shown as itself ---------------------------------------
+   A tax-sale property is usually land: no living area, no class A1, so it can
+   never appear in a list built out of a house buy box. Joining it to the ranked
+   list is right when it fires and invisible when it doesn't — so show the file
+   directly too.                                                              */
+function drawFlagList(){
+  var box=$("flagList");
+  if(!FLAGS.loaded){ box.innerHTML='<p class="hint">flags.json hasn’t loaded. If you just '+
+    'uploaded it, tap <b>force refresh</b> at the bottom of the page.</p>'; return }
+  var tax=[], sale=[];
+  for(var g in FLAGS.byGeo){ if(FLAGS.byGeo[g].tax) tax.push([g,FLAGS.byGeo[g].tax]) }
+  var seen={};
+  for(var a in FLAGS.byAddr){
+    var v=FLAGS.byAddr[a]; if(!v.sale) continue;
+    var k=v.sale.price+"|"+v.sale.mls; if(seen[k]) continue; seen[k]=1;
+    sale.push([a,v.sale]);
+  }
+  var html="";
+  html+='<div class="note'+(sale.length?"":" warn")+'"><b>'+sale.length.toLocaleString()+
+        ' for sale</b> · <b>'+tax.length.toLocaleString()+' on a tax list</b>'+
+        (FLAGS.generated?' · file built '+FLAGS.generated.slice(0,10):'')+
+        (sale.length?'':'. The for-sale half is empty until a RENTCAST_KEY is set and the '+
+          'GitHub Action has run once.')+'</div>';
+  if(tax.length){
+    html+='<h4 class="fh">Tax sale</h4>';
+    tax.sort(function(x,y){return (y[1].cad||0)-(x[1].cad||0)});
+    tax.forEach(function(t){
+      var d=t[1];
+      html+='<div class="hit"><div class="ht">'+(d.legal||t[0])+'</div>'+
+        '<div class="hm">'+(d.county||"")+' · acct '+t[0]+(d.cause?' · cause '+d.cause:'')+'</div>'+
+        '<div class="hs">'+(d.min!=null?'<b>Minimum bid '+money(d.min)+'</b>':'')+
+          (d.cad?' · county value '+money(d.cad):'')+
+          (d.cad&&d.min?' · '+Math.round((1-d.min/d.cad)*100)+'% under the county’s number':'')+
+          (d.saleDate?'<br>Sale date '+d.saleDate+(d.saleDate<new Date().toISOString().slice(0,10)
+              ?' — already passed, so it went unsold and rolls to the next one':''):'')+'</div>'+
+        '</div>';
+    });
+  }
+  if(sale.length){
+    html+='<h4 class="fh">For sale</h4>';
+    sale.sort(function(x,y){return x[1].price-y[1].price});
+    sale.slice(0,80).forEach(function(t){
+      var d=t[1];
+      html+='<div class="hit"><div class="ht">'+titleCase(t[0].split("|")[0])+'</div>'+
+        '<div class="hs"><b>'+money(d.price)+'</b>'+
+          (d.days?' · '+d.days+' days on market':'')+(d.status?' · '+d.status:'')+
+          (d.listed?' · listed '+d.listed:'')+'</div></div>';
+    });
+    if(sale.length>80) html+='<p class="hint">'+(sale.length-80).toLocaleString()+' more not shown.</p>';
+  }
+  box.innerHTML=html;
+}
 
 mergeCounties();
 
