@@ -27,3 +27,6 @@
 window.DE_CONFIG = {
   streetViewKey: ""
 };
+window.DE_CONFIG = {
+  streetViewKey: ""
+};
