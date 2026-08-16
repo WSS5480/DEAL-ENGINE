@@ -245,6 +245,7 @@ label.f.sm2 .inp{padding:8px 9px}
  box-shadow:inset 0 0 0 2px var(--acc)}
 .fh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin:14px 0 8px;font-weight:750}
 </style>
+<script src="config.js" onerror="void 0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -380,6 +381,7 @@ label.f.sm2 .inp{padding:8px 9px}
       <input class="inp" id="sv_key" placeholder="AIza…">
       <div class="row" style="margin-top:9px">
         <button class="btn sm" id="svSave">Save key</button>
+        <button class="btn ghost sm" id="svTest">Test it</button>
         <button class="btn ghost sm" id="svClear">Remove</button>
       </div>
       <div class="status" id="svStatus"></div>
@@ -428,7 +430,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-16 · 13 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-16 · 14 · for-sale & tax flags · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -1038,7 +1040,13 @@ async function runLive(quiet){
    and with no heading given Google aims the camera from the nearest pano at the
    coordinates you passed, which is the house. return_error_code turns a missing
    pano into a 404 instead of a grey box, so onerror can just remove the frame. */
-function svKey(){ try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" } }
+function svKey(){
+  /* config.js wins when present, so the key follows the deploy and every device
+     gets photos. localStorage is the per-phone fallback for a key you would
+     rather not commit. */
+  try{ if(window.DE_CONFIG && DE_CONFIG.streetViewKey) return DE_CONFIG.streetViewKey }catch(e){}
+  try{ return localStorage.getItem("de_svkey")||"" }catch(e){ return "" }
+}
 function streetPhoto(lat,lon,w,h){
   var k=svKey();
   if(!k||!isFinite(lat)||!isFinite(lon)) return "";
@@ -1177,6 +1185,44 @@ $("ncSave").onclick=function(){
     $("svStatus").textContent = v ? "Saved. Open any property to see it." : "Cleared.";
     if(RAW.length) render(RAW,LABEL,false);
   };
+
+  /* Google answers metadata requests free and unlimited, and its error_message
+     names the exact misconfiguration — which beats staring at a blank frame. */
+  $("svTest").onclick=async function(){
+    var k=$("sv_key").value.trim()||svKey();
+    var st=$("svStatus");
+    if(!k){ st.className="status err"; st.textContent="No key to test."; return }
+    st.className="status"; st.innerHTML='<span class="spin"></span>Asking Google…';
+    var u="https://maps.googleapis.com/maps/api/streetview/metadata?location=26.2034,-98.2300"+
+          "&source=outdoor&key="+encodeURIComponent(k);
+    try{
+      var j=await (await fetch(u)).json();
+      if(j.status==="OK"){
+        st.className="status ok";
+        st.innerHTML="Working. Nearest McAllen panorama is from <b>"+(j.date||"—")+"</b>. "+
+          "Open any property to see the house.";
+        if(LIST.length) render(RAW,LABEL,false);
+      } else if(j.status==="ZERO_RESULTS"){
+        st.className="status ok";
+        st.innerHTML="Key is accepted — Google just has no panorama at that test point. "+
+          "That is fine; real addresses will work.";
+      } else if(j.status==="REQUEST_DENIED"){
+        st.className="status err";
+        st.innerHTML="<b>Denied.</b> "+(j.error_message||"")+
+          "<br>Almost always one of two things: <b>Street View Static API</b> is not enabled on "+
+          "that Cloud project, or the key's website restriction doesn't include "+
+          "<b>"+location.origin+"/*</b>.";
+      } else {
+        st.className="status err";
+        st.innerHTML="Google said <b>"+j.status+"</b>. "+(j.error_message||"");
+      }
+    }catch(e){
+      st.className="status err";
+      st.innerHTML="Couldn't reach Google to check ("+(e.message||e)+"). The key may still work — "+
+        "open a property and see whether a photo appears above the aerial.";
+    }
+  };
+  
   $("svClear").onclick=function(){
     try{ localStorage.removeItem("de_svkey") }catch(e){}
     $("sv_key").value=""; $("svStatus").className="status";
