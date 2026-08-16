@@ -107,7 +107,7 @@ select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.
 #buildTag{text-align:center;font-size:10.5px;color:var(--txt3);margin:16px 0 4px}
 #buildTag a{color:var(--acc2);font-weight:700}
 </style>
-<script src="config.js?v=27" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=28" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 </head>
 <body>
 
@@ -143,7 +143,7 @@ select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.
 </div>
 
 <div id="results"></div>
-<p id="buildTag">Property Search · Build 2026-08-16 · 2 · <a href="#" id="bust">force refresh</a></p>
+<p id="buildTag">Property Search · Build 2026-08-17 · 3 · <a href="#" id="bust">force refresh</a></p>
 </main>
 
 <script>
@@ -250,6 +250,19 @@ var SRC={
 /* All three counties run their official public records on the same Kofile
    platform. No appraisal district anywhere publishes a chain of title — this is
    where it actually lives. */
+/* Appraisal rolls file owners last-name-first and bolt on everything from a
+   spouse to an estate: "MADERO JORGE & LIDIA", "GARZA MARIA ETUX", "SMITH
+   JOHN JR TRUSTEE". Searching that whole string finds exactly the one parcel
+   you started from. Cut it back to the part that identifies the family. */
+var OWNJUNK=/^(ETAL|ET|AL|ETUX|ETVIR|UX|JR|SR|II|III|IV|TRUSTEE|TR|TRUST|EST|ESTATE|OF|THE|LIFE|ESTATES?)$/;
+function ownerQuery(name,tokens){
+  var t=String(name||"").toUpperCase()
+        .replace(/&.*$/,"")              // drop the spouse half
+        .replace(/[^A-Z0-9 ]/g," ")
+        .split(/\s+/).filter(Boolean)
+        .filter(function(x){ return !OWNJUNK.test(x) });
+  return t.slice(0,tokens||2).join(" ");
+}
 function clerkSearch(key,q){
   var src=SRC[key]; if(!src||!src.clerk) return "";
   return "https://"+src.clerk+".tx.publicsearch.us/results?_courtId=&department=RP"+
@@ -491,19 +504,24 @@ function titleBlock(r){
     h+=L("Last deed", bits.join(" · ")||"—");
     if(d.rec&&d.rec!==d.date) h+=L("Recorded", d.rec);
   }
-  var byName=clerkSearch(KEY,r.owner), byAddr=clerkSearch(KEY,r.address);
-  var byInst=(d&&d.num)?clerkSearch(KEY,d.num):"";
-  if(byName||byAddr){
-    h+='<div class="phrow" style="margin-top:10px">'+
-       (byName?'<a class="phbtn" href="'+byName+'" target="_blank" rel="noopener">Deeds by owner ↗</a>':'')+
-       (byInst?'<a class="phbtn" href="'+byInst+'" target="_blank" rel="noopener">This instrument ↗</a>':'')+
-       (byAddr?'<a class="phbtn" href="'+byAddr+'" target="_blank" rel="noopener">Deeds by address ↗</a>':'')+
-       '</div>'+
-       '<p class="hint">An appraisal district only ever shows who owns it <i>now</i> and the '+
-       'deed that brought them in. Those buttons open the <b>county clerk’s official public '+
-       'records</b> with the search already filled — that is where the chain of title is, '+
-       'deed by deed, back as far as they have scanned.</p>';
+  var oq=ownerQuery(r.owner);
+  var portal=SRC[KEY]&&SRC[KEY].clerk ? "https://"+SRC[KEY].clerk+".tx.publicsearch.us/" : "";
+  h+='<div class="phrow" style="margin-top:10px">';
+  if(oq) h+='<button class="phbtn" type="button" data-own="'+oq.replace(/"/g,"&quot;")+
+            '">More by this owner</button>';
+  if(portal){
+    var copy=(d&&d.num)?d.num:oq;
+    h+='<button class="phbtn" type="button" data-clerk="'+portal+
+       '" data-copy="'+String(copy).replace(/"/g,"&quot;")+'">Deed records ↗</button>';
   }
+  h+='</div>';
+  h+='<p class="hint"><b>More by this owner</b> re-runs this search on <i>'+(oq||"the owner")+
+     '</i> against the appraisal roll — that is where "what else do they own" lives, and it '+
+     'is exact.<br><br><b>Deed records</b> opens the county clerk. Their search will not accept '+
+     'a term from a link, so the app copies <i>'+String((d&&d.num)?d.num:oq||"the name")+
+     '</i> to your clipboard — paste it into their box. The appraisal roll only ever holds the '+
+     '<i>current</i> owner and the last deed in; the clerk is the only place the full chain of '+
+     'title exists.</p>';
   return h;
 }
 
@@ -552,6 +570,31 @@ function card(r,i){
   };
   return d;
 }
+
+/* One delegated handler rather than inline onclick, so the buttons survive
+   being re-rendered. */
+document.addEventListener("click",function(e){
+  var own=e.target.closest&&e.target.closest("[data-own]");
+  if(own){
+    e.stopPropagation();
+    MODE="owner"; drawMode();
+    $("q").value=own.getAttribute("data-own");
+    $("go").click();
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+  var cl=e.target.closest&&e.target.closest("[data-clerk]");
+  if(cl){
+    e.stopPropagation();
+    var txt=cl.getAttribute("data-copy")||"";
+    var open=function(){ window.open(cl.getAttribute("data-clerk"),"_blank","noopener") };
+    try{
+      navigator.clipboard.writeText(txt).then(function(){
+        cl.textContent="Copied — opening ↗"; open();
+      },open);
+    }catch(err){ open() }
+  }
+});
 
 function draw(rows){
   var res=$("results"); res.innerHTML="";

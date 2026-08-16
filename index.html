@@ -287,7 +287,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=27" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=28" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -513,7 +513,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-17 · 27 · fixes the broken query (deed fields) · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-08-17 · 28 · more by this owner, honest clerk handoff · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -926,19 +926,21 @@ function titleBlock(p){
       h+='<div class="led"><span class="l">Recorded</span><b style="font-family:inherit;font-weight:600">'+d.rec+'</b></div>';
   }
 
-  var byName=clerkSearch(key,p.owner), byAddr=clerkSearch(key,p.address);
-  var byInst=(d&&d.num)?clerkSearch(key,d.num):"";
-  if(byName||byAddr){
-    h+='<div class="phrow" style="margin-top:9px">'+
-       (byName?'<a class="phbtn" href="'+byName+'" target="_blank" rel="noopener">Deeds by owner \u2197</a>':'')+
-       (byInst?'<a class="phbtn" href="'+byInst+'" target="_blank" rel="noopener">This instrument \u2197</a>':'')+
-       (byAddr?'<a class="phbtn" href="'+byAddr+'" target="_blank" rel="noopener">Deeds by address \u2197</a>':'')+
-       '</div>'+
-       '<p class="hint" style="margin-top:7px">The county\u2019s roll only ever shows who owns it '+
-       'now and the last deed in. Those links open the <b>county clerk\u2019s official public '+
-       'records</b> with the search filled in \u2014 that is where the chain of title is, deed by '+
-       'deed, back as far as they have scanned.</p>';
-  }
+  var oq=ownerQuery(p.owner);
+  var sub=CLERK[key], portal=sub?("https://"+sub+".tx.publicsearch.us/"):"";
+  var copy=(d&&d.num)?d.num:oq;
+  h+='<div class="phrow" style="margin-top:9px">';
+  if(oq) h+='<button class="phbtn" type="button" data-own="'+oq.replace(/"/g,"&quot;")+
+            '">More by this owner</button>';
+  if(portal) h+='<button class="phbtn" type="button" data-clerk="'+portal+
+                '" data-copy="'+String(copy).replace(/"/g,"&quot;")+'">Deed records \u2197</button>';
+  h+='</div>';
+  h+='<p class="hint" style="margin-top:7px"><b>More by this owner</b> searches the appraisal '+
+     'roll for <i>'+(oq||"the owner")+'</i> \u2014 that is where "what else do they own" lives, '+
+     'and it is exact.<br><br><b>Deed records</b> opens the county clerk. Their search will not '+
+     'take a term from a link, so <i>'+String(copy||"the name")+'</i> goes on your clipboard \u2014 '+
+     'paste it into their box. The roll only holds the <i>current</i> owner and the last deed in; '+
+     'the clerk is the only place the full chain of title exists.</p>';
   return h;
 }
 
@@ -1227,6 +1229,15 @@ var PT="house";
    same Kofile platform, at <county>.tx.publicsearch.us. That is where a chain of
    title actually lives \u2014 no appraisal district publishes one. */
 var CLERK={"TX|HIDALGO":"hidalgo","TX|CAMERON":"cameron","TX|STARR":"starr"};
+/* Appraisal rolls file owners last-name-first with everything bolted on:
+   "MADERO JORGE & LIDIA", "GARZA MARIA ETUX", "SMITH JOHN JR TRUSTEE".
+   Searching that whole string finds only the parcel you started from. */
+var OWNJUNK=/^(ETAL|ET|AL|ETUX|ETVIR|UX|JR|SR|II|III|IV|TRUSTEE|TR|TRUST|EST|ESTATE|OF|THE|LIFE|ESTATES?)$/;
+function ownerQuery(name,tokens){
+  var t=String(name||"").toUpperCase().replace(/&.*$/,"").replace(/[^A-Z0-9 ]/g," ")
+        .split(/\s+/).filter(Boolean).filter(function(x){return !OWNJUNK.test(x)});
+  return t.slice(0,tokens||2).join(" ");
+}
 function clerkSearch(countyKey,q){
   var sub=CLERK[countyKey];
   if(!sub) return "";
@@ -1948,6 +1959,30 @@ function recordCards(rows,label){
   $("filterCard").style.display="none";
   LIST=[]; RAW=[];
 }
+
+/* Delegated so the buttons survive a re-render. */
+document.addEventListener("click",function(e){
+  if(!e.target||!e.target.closest) return;
+  var own=e.target.closest("[data-own]");
+  if(own){
+    e.stopPropagation();
+    [].forEach.call($("srcSeg").children,function(x){x.classList.toggle("on",x.dataset.s==="find")});
+    ["live","find","paste","demo","flag"].forEach(function(s2){
+      $("src-"+s2).style.display=(s2==="find"?"block":"none")});
+    FINDMODE="owner"; drawFindMode();
+    $("f_one").value=own.getAttribute("data-own");
+    $("btnOne").click();
+    return;
+  }
+  var cl=e.target.closest("[data-clerk]");
+  if(cl){
+    e.stopPropagation();
+    var txt=cl.getAttribute("data-copy")||"";
+    var go=function(){ window.open(cl.getAttribute("data-clerk"),"_blank","noopener") };
+    try{ navigator.clipboard.writeText(txt).then(function(){ cl.textContent="Copied \u2014 opening \u2197"; go() },go) }
+    catch(err){ go() }
+  }
+});
 
 /* ---- score one address ----------------------------------------------------
  * A ranked list answers "what should I look at". This answers "what about THIS
