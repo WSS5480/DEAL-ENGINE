@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Property Search · IntAIlisoft</title>
-<meta name="theme-color" content="#16203a">
+<title>Property Search · IntAlsoft</title>
+<meta name="theme-color" content="#0B4FD3">
 <meta name="description" content="Look up any property in Hidalgo, Cameron or Starr County — owner, mailing address, values, acreage, the last recorded deed, and a one-tap link into the county clerk's records.">
 <style>
 :root{
-  --bg:#f4f6fa; --bg2:#eaeef6; --card:#fff; --line:#e2e7f0; --line2:#cfd7e6;
-  --txt:#16203a; --txt2:#4a5772; --txt3:#8290ab;
-  --acc:#f26a21; --acc2:#c94f0d; --navy:#16203a;
-  --good:#127a45; --warn:#9a6100; --bad:#a32020;
+  --bg:#EDF2FB; --bg2:#E3ECFD; --card:#fff; --line:#DBE4F2; --line2:#BFD0EA;
+  --txt:#101822; --txt2:#5A6A80; --txt3:#8894A6;
+  --acc:#F2660D; --acc2:#D9550A; --navy:#0B4FD3;
+  --good:#0F7B45; --warn:#B45309; --bad:#B42318;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -23,14 +23,14 @@ input,select,textarea,.inp{font-size:16px!important}
 
 header{background:var(--navy);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;
  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px}
-.logo{width:38px;height:38px;border-radius:10px;background:#0f1729;display:flex;align-items:center;
+.logo{width:38px;height:38px;border-radius:10px;background:#0A3FA8;display:flex;align-items:center;
  justify-content:center;flex:none}
 .logo i{display:block;width:15px;height:15px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
  background:var(--acc);position:relative}
-.logo i::after{content:"";position:absolute;left:4.5px;top:4.5px;width:6px;height:6px;border-radius:50%;background:#0f1729}
+.logo i::after{content:"";position:absolute;left:4.5px;top:4.5px;width:6px;height:6px;border-radius:50%;background:#0A3FA8}
 .htxt{flex:1;min-width:0}
 .htxt b{display:block;font-size:19px;font-weight:800;letter-spacing:-.01em}
-.htxt span{display:block;font-size:11.5px;color:#9fb0d0;margin-top:1px}
+.htxt span{display:block;font-size:11.5px;color:#BFD3F7;margin-top:1px}
 .hbtn{font-size:12.5px;font-weight:700;color:#fff;text-decoration:none;border:1px solid #33405f;
  border-radius:9px;padding:8px 11px;white-space:nowrap}
 
@@ -47,7 +47,7 @@ label.f>span{display:block;font-size:10.5px;text-transform:uppercase;letter-spac
 select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7'><path d='M1 1l4.5 4.5L10 1' stroke='%238290ab' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 .row{display:flex;gap:8px;flex-wrap:wrap}
-.btn{flex:1;min-width:130px;padding:13px 14px;border:0;border-radius:11px;background:var(--acc);color:#16203a;
+.btn{flex:1;min-width:130px;padding:13px 14px;border:0;border-radius:999px;background:var(--acc);color:#fff;
  font:800 15px/1 inherit;cursor:pointer}
 .btn.ghost{background:var(--card);color:var(--txt2);border:1px solid var(--line2);font-weight:700}
 .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:12px}
@@ -113,7 +113,7 @@ select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.
 
 <header>
   <div class="logo"><i></i></div>
-  <div class="htxt"><b>Property Search</b><span>IntAIlisoft · county appraisal records</span></div>
+  <div class="htxt"><b>Property Search</b><span>IntAlsoft · county appraisal records</span></div>
   <a class="hbtn" href="index.html">← Finder</a>
 </header>
 
