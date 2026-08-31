@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const BUILD = '2026-08-31.1';
+const BUILD = '2026-08-31.3';
 const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const ROOT = __dirname;
 
@@ -162,21 +162,22 @@ const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
 <title>Deal Engine — sign in</title>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
-  :root{--ink:#121a24;--sub:#5d6b7d;--line:#dde3ec;--brand:#1f6feb;--bad:#b3261e}
+  :root{--ink:#101822;--sub:#5A6A80;--line:#DBE4F2;--brand:#0B4FD3;--accent:#F2660D;--bad:#B42318}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    padding:24px;background:#eef1f6;color:var(--ink);
+    padding:24px;background:#EDF2FB;color:var(--ink);
     font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
   .box{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);
-    border-radius:16px;padding:26px 22px;box-shadow:0 8px 30px rgba(18,26,36,.07)}
-  h1{margin:0 0 4px;font-size:21px;letter-spacing:-.02em}
+    border-radius:16px;padding:26px 22px;box-shadow:0 8px 30px rgba(11,40,90,.09)}
+  h1{margin:0 0 4px;font-size:24px;letter-spacing:-.03em;color:var(--brand)}
   .sub{color:var(--sub);font-size:13.5px;margin-bottom:18px}
   label{display:block;font-size:12.5px;color:var(--sub);margin:12px 0 5px}
   input{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);
     border-radius:10px;background:#fbfcfe;color:var(--ink)}
   input:focus{outline:2px solid var(--brand);outline-offset:-1px;background:#fff}
-  button{width:100%;margin-top:18px;padding:13px;font-size:15.5px;font-weight:600;
-    border:0;border-radius:10px;background:var(--brand);color:#fff}
+  button{width:100%;margin-top:18px;padding:13px;font-size:15.5px;font-weight:700;
+    border:0;border-radius:999px;background:var(--accent);color:#fff}
+  button:active{background:#D9550A}
   .msg{margin-top:14px;padding:10px 12px;border-radius:9px;font-size:13.5px;
     background:#fde8e6;border:1px solid #f5c6c2;color:var(--bad)}
   .alt{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);
@@ -202,8 +203,55 @@ const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
   <div class="alt">${mode === 'up'
     ? 'Already have an account? <a href="/signin">Sign in</a>'
     : 'No account yet? <a href="/signup">Create one</a>'}</div>
-  <div class="foot">build ${BUILD}</div>
+  <div class="foot">build ${BUILD} · <a href="/privacy" target="_blank">privacy</a></div>
 </form></body></html>`;
+
+/* ------------------------------------------------------------ privacy --- */
+const PRIVACY_PAGE = `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deal Finder — Privacy</title>
+<style>body{font:16px/1.65 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#101822;
+background:#EDF2FB;margin:0;padding:28px 18px}main{max-width:660px;margin:0 auto;
+background:#fff;border:1px solid #DBE4F2;border-radius:14px;padding:24px 22px}
+h1{font-size:26px;margin:0 0 4px;color:#0B4FD3}
+h2{font-size:18px;margin:26px 0 6px;color:#101822}
+p,li{margin:8px 0}a{color:#0A3FA8}.d{color:#5A6A80;font-size:14px}</style></head><body><main>
+<h1>Deal Finder Privacy Statement</h1>
+<p class="d">Last updated 31 August 2026</p>
+
+<h2>Your searches stay on your device</h2>
+<p>Deal Finder's searching, ranking and deal math run in your browser. The
+properties you look at, the filters you set and the numbers you type are not
+sent to or stored on our servers. Property data itself comes from public county
+appraisal records, fetched by your browser directly from the county.</p>
+
+<h2>What we store</h2>
+<p>One thing: your account — name, email, a scrambled (hashed) form of your
+password that cannot be read back, and whether you are on the free or paid
+plan. The same account signs you into our other apps, so it is kept once, in
+one place, not copied around.</p>
+
+<h2>Street View photos</h2>
+<p>When a property photo is shown, your browser asks Google's Street View
+service for the image of that address. That request goes to Google and is
+covered by Google's own privacy policy. If no photo loads, nothing was sent.</p>
+
+<h2>What the platform owner can see</h2>
+<p>Because your searches never reach our servers, there is nothing of your
+deal-hunting for anyone to look at — the operator can see that your account
+exists and its plan, nothing more.</p>
+
+<h2>Cookies and tracking</h2>
+<p>One cookie, used to keep you signed in. No advertising, no trackers, no
+analytics, and your data is never sold or shared for marketing.</p>
+
+<h2>Your choices</h2>
+<p>You can change your password at any time (it changes across all connected
+apps at once). To ask about your account or request deletion, contact
+<a href="mailto:steve.smith@buddyrents.com">steve.smith@buddyrents.com</a>.</p>
+
+<p class="d">If this statement changes, the date above changes with it.</p>
+</main></body></html>`;
 
 /* ---------------------------------------------------------- server --- */
 
@@ -215,9 +263,9 @@ function sendPage(res, rel, email) {
     if (err) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
     const badge = `<div id="de-account" style="position:fixed;left:8px;bottom:8px;z-index:2147483000;
       font:11.5px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-      background:rgba(255,255,255,.92);border:1px solid #dde3ec;border-radius:999px;
-      padding:5px 11px;color:#5d6b7d;box-shadow:0 2px 8px rgba(18,26,36,.12)">
-      ${esc(email)} · <a href="/signout" style="color:#1f6feb;text-decoration:none">sign out</a></div>`;
+      background:rgba(255,255,255,.92);border:1px solid #DBE4F2;border-radius:999px;
+      padding:5px 11px;color:#5A6A80;box-shadow:0 2px 8px rgba(11,40,90,.14)">
+      ${esc(email)} · <a href="/signout" style="color:#0A3FA8;text-decoration:none">sign out</a></div>`;
     const out = html.includes('</body>') ? html.replace('</body>', badge + '\n</body>') : html + badge;
     send(res, 200, out, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -232,6 +280,8 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
 
   if (p === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
+
+  if (p === '/privacy') return send(res, 200, PRIVACY_PAGE);
 
   // The sign-in and sign-up pages are the moment to wake My Apps.
   if ((p === '/signin' || p === '/signup') && req.method === 'GET') {
