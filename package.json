@@ -1,0 +1,9 @@
+{
+  "name": "deal-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deal Engine — property finder, calculator and county search, behind one shared sign-in",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

@@ -8,13 +8,17 @@
  *   aerial tiles     cache first                      — imagery from 2024 is
  *                                                       the same imagery today
  */
-var VERSION = "de-2026-08-17-b";
+var VERSION = "de-2026-08-31-a";
 var SHELL   = VERSION + "-shell";
 var TILES   = "de-tiles";
 var TILE_MAX = 400;               // roughly 25 MB of imagery, then oldest go
 
+/* The pages themselves are no longer precached. They sit behind sign-in now,
+   so a first visit while signed out would otherwise cache the sign-in page
+   under the app's own address and keep serving it. They are still cached the
+   normal way once fetched successfully, which is what network-first does. */
 var PRECACHE = [
-  "./", "./index.html", "./calc.html", "./search.html", "./manifest.json", "./config.js?v=27",
+  "./manifest.json", "./config.js?v=28",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"
 ];
 
