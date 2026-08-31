@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#222f4e">
+<meta name="theme-color" content="#0B4FD3">
 <title>Deal Finder — rank a whole market</title>
 <style>
-:root{--bg:#f6f8fb;--bg2:#eceff6;--card:#ffffff;--line:#dfe4ee;--line2:#c5cede;
---txt:#1a2438;--txt2:#4b5670;--txt3:#7c869c;--acc:#e9782a;--good:#12785a;--warn:#96631a;--bad:#c0392f;--violet:#3c4f80;
---navy:#222f4e;--navy2:#18223a;--onnavy:#eef2f9;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+:root{--bg:#EDF2FB;--bg2:#E3ECFD;--card:#ffffff;--line:#DBE4F2;--line2:#BFD0EA;
+--txt:#101822;--txt2:#5A6A80;--txt3:#8894A6;--acc:#F2660D;--good:#0F7B45;--warn:#B45309;--bad:#B42318;--violet:#0A3FA8;
+--navy:#0B4FD3;--navy2:#0B4FD3;--onnavy:#eef2f9;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;padding-bottom:78px}
@@ -16,7 +16,7 @@ h1,h2,h3{margin:0;font-weight:680;letter-spacing:-.015em}
 button{font:inherit;cursor:pointer}
 input,select{font:inherit;color:inherit}
 
-header{position:sticky;top:0;z-index:60;background:rgba(34,47,78,.94);backdrop-filter:blur(14px);
+header{position:sticky;top:0;z-index:60;background:rgba(11,79,211,.94);backdrop-filter:blur(14px);
  border-bottom:1px solid var(--line);padding:11px 15px}
 .brand{display:flex;align-items:center;gap:9px}
 .lg{width:29px;height:29px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:15px;
@@ -46,7 +46,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .pre{position:relative}.pre .inp{padding-left:23px}
 .pre::before{content:"$";position:absolute;left:11px;top:31px;color:var(--txt3);font-size:14px}
 
-.btn{background:var(--acc);color:#ffffff;border:none;border-radius:10px;padding:11px 16px;font-weight:750;font-size:14.5px}
+.btn{background:var(--acc);color:#ffffff;border:none;border-radius:999px;padding:11px 16px;font-weight:750;font-size:14.5px}
 .btn:active{transform:scale(.985)}
 .btn.ghost{background:var(--bg2);color:var(--txt);border:1px solid var(--line2)}
 .btn.sm{padding:8px 12px;font-size:13px}
@@ -117,7 +117,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .empty{text-align:center;padding:34px 18px;color:var(--txt3);font-size:13.5px;line-height:1.6}
 .empty b{color:var(--txt2);display:block;font-size:15px;margin-bottom:6px}
 
-footer.act{position:fixed;left:0;right:0;bottom:0;z-index:70;background:linear-gradient(0deg,#f6f8fb 70%,rgba(246,248,251,.86));
+footer.act{position:fixed;left:0;right:0;bottom:0;z-index:70;background:linear-gradient(0deg,#EDF2FB 70%,rgba(237,242,251,.86));
  border-top:1px solid var(--line);padding:11px 15px calc(11px + env(safe-area-inset-bottom));display:flex;gap:9px;align-items:center}
 footer .lead{flex:1;min-width:0}
 footer .lead .t{font-size:10.5px;color:var(--txt3);font-weight:750;letter-spacing:.05em;text-transform:uppercase}
@@ -159,7 +159,7 @@ footer .lead .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ptrow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .pt{font-size:12.5px;font-weight:700;padding:8px 11px;border-radius:9px;cursor:pointer;
  border:1px solid var(--line2);background:var(--card);color:var(--txt2);font-family:inherit}
-.pt.on{background:var(--acc);border-color:var(--acc);color:#16203a}
+.pt.on{background:var(--acc);border-color:var(--acc);color:#fff}
 .pt[disabled]{opacity:.38}
 #ptHint{font-size:11.5px;color:var(--txt3);margin:-6px 0 12px;line-height:1.5}
 .phcred{font-size:9.5px;color:var(--txt3);margin-left:auto;white-space:nowrap}
@@ -187,14 +187,14 @@ header small{color:rgba(238,242,249,.72) !important}
 header .cnt{color:rgba(238,242,249,.62)}
 .calcbtn{color:#fff !important;border-color:rgba(255,255,255,.28) !important;
  background:rgba(255,255,255,.08)}
-.lg,.logo{background:#18223a !important;border:1px solid rgba(255,255,255,.13);
+.lg,.logo{background:#0B4FD3 !important;border:1px solid rgba(255,255,255,.13);
  display:grid;place-items:center}
 /* primary action carries the brand orange; navy type on it clears 5:1 */
-.btn{background:var(--acc);color:#16203a}
+.btn{background:var(--acc);color:#fff}
 .btn.ghost{background:var(--card);color:var(--acc2)}
-#a2hs button{background:var(--acc);color:#16203a}
+#a2hs button{background:var(--acc);color:#fff}
 .rk{background:rgba(26,36,56,.78)}
-.deal.t1 .rk{background:var(--acc);color:#16203a}
+.deal.t1 .rk{background:var(--acc);color:#fff}
 
 .hint{font-size:12px;color:var(--txt3);margin:0 0 9px;line-height:1.5}
 .hint b{color:var(--txt2)}
@@ -251,11 +251,11 @@ label.f.sm2 .inp{padding:8px 9px}
 .chip span{display:inline-block;font-size:12.5px;font-weight:650;padding:8px 12px;border-radius:999px;
  background:var(--bg2);border:1px solid var(--line);color:var(--txt2);cursor:pointer;
  transition:background .12s,border-color .12s,color .12s;user-select:none}
-.chip input:checked+span{background:var(--acc);border-color:var(--acc);color:#16203a}
+.chip input:checked+span{background:var(--acc);border-color:var(--acc);color:#fff}
 .chip input:focus-visible+span{outline:2px solid var(--acc2);outline-offset:2px}
 .chip span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:6px;
  vertical-align:-2px;border:1.5px solid var(--line2);border-radius:3.5px;background:var(--card)}
-.chip input:checked+span::before{background:#16203a;border-color:#16203a;
+.chip input:checked+span::before{background:#fff;border-color:#fff;
  box-shadow:inset 0 0 0 2px var(--acc)}
 .fh{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin:14px 0 8px;font-weight:750}
 </style>
@@ -294,14 +294,14 @@ label.f.sm2 .inp{padding:8px 9px}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Deal Engine">
+<meta name="apple-mobile-web-app-title" content="Deal Finder">
 </head>
 <body>
 
 <header>
   <div class="brand">
-    <div class="lg"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#e9782a"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
-    <div><h1>Deal Finder</h1><small id="sub">IntAIlisoft · live county records</small></div>
+    <div class="lg"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#F2660D"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
+    <div><h1>Deal Finder</h1><small id="sub">IntAlsoft · live county records</small></div>
     <span class="sp"></span>
     <a class="calcbtn" href="search.html">Search &rarr;</a><a class="calcbtn" href="calc.html">Calculator &rarr;</a><span class="cnt" id="cnt"></span>
   </div>
@@ -2714,7 +2714,7 @@ $("results").innerHTML='<div class="card"><div class="empty"><b>Pick a county an
     window.addEventListener("beforeinstallprompt",function(ev){
       ev.preventDefault(); deferred=ev;
       if(bar) return;
-      build('<div class="at"><b>Install Deal Engine</b>Runs full screen, opens offline.</div>'+
+      build('<div class="at"><b>Install Deal Finder</b>Runs full screen, opens offline.</div>'+
             '<button id="a2hsGo">Install</button>');
       var go=document.getElementById("a2hsGo");
       if(go) go.onclick=function(){

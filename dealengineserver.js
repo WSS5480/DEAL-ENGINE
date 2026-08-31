@@ -1,4 +1,4 @@
-/* Deal Engine — the same pages, now behind one sign-in.
+/* Deal Finder — the same pages, now behind one sign-in.
  *
  * This was a static site. A static site has no server, so it cannot hold a
  * secret, cannot check a password, and cannot know who is looking at it. This
@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const BUILD = '2026-08-31.3';
+const BUILD = '2026-08-31.4';
 const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const ROOT = __dirname;
 
@@ -159,7 +159,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Deal Engine — sign in</title>
+<title>Deal Finder — sign in</title>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
   :root{--ink:#101822;--sub:#5A6A80;--line:#DBE4F2;--brand:#0B4FD3;--accent:#F2660D;--bad:#B42318}
@@ -186,7 +186,7 @@ const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
   .foot{margin-top:16px;font-size:12px;color:var(--sub);text-align:center}
 </style></head>
 <body><form class="box" method="POST" action="${mode === 'up' ? '/signup' : '/signin'}">
-  <h1>Deal Engine</h1>
+  <h1>Deal Finder</h1>
   <div class="sub">${mode === 'up' ? 'One account works in every one of your apps.'
     : 'Sign in with your account — the same one your other apps use.'}</div>
   ${mode === 'up' ? `<label for="name">Your name</label>
@@ -365,7 +365,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Deal Engine listening on ${PORT} (build ${BUILD})`);
+  console.log(`Deal Finder listening on ${PORT} (build ${BUILD})`);
   if (!centralOn()) console.log('WARNING: MY_APPS_URL / MY_APPS_SLUG / MY_APPS_SECRET are not all set — nobody can sign in.');
   if (!process.env.SESSION_SECRET) console.log('WARNING: SESSION_SECRET is not set — everyone is signed out on each deploy.');
 });

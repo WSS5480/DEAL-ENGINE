@@ -1,6 +1,6 @@
 {
-  "name": "Deal Finder \u2014 IntAIlisoft",
-  "short_name": "Deal Engine",
+  "name": "Deal Finder \u2014 IntAlsoft",
+  "short_name": "Deal Finder",
   "description": "Rank a whole market from live county appraisal records, best to worst, with a walk-in offer on every parcel.",
   "id": "/",
   "start_url": "./index.html",

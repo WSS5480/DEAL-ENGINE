@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
-<title>Deal Engine — Buy / Pass Analyzer</title>
+<meta name="theme-color" content="#0B4FD3">
+<title>Deal Finder — Buy / Pass Analyzer</title>
 <style>
 :root{
-  --bg:#f6f8fb; --bg2:#eceff6; --card:#ffffff; --card2:#f9fafd;
-  --line:#dfe4ee; --line2:#c5cede;
-  --txt:#1a2438; --txt2:#4b5670; --txt3:#7c869c;
-  --acc:#e9782a; --acc2:#b4550f;
-  --good:#12785a; --goodbg:rgba(18,120,90,.09);
-  --warn:#96631a; --warnbg:rgba(150,99,26,.09);
-  --bad:#c0392f;  --badbg:rgba(192,57,47,.08);
-  --violet:#3c4f80;
+  --bg:#EDF2FB; --bg2:#E3ECFD; --card:#ffffff; --card2:#F7FAFF;
+  --line:#DBE4F2; --line2:#BFD0EA;
+  --txt:#101822; --txt2:#5A6A80; --txt3:#8894A6;
+  --acc:#F2660D; --acc2:#D9550A;
+  --good:#0F7B45; --goodbg:rgba(18,120,90,.09);
+  --warn:#B45309; --warnbg:rgba(150,99,26,.09);
+  --bad:#B42318;  --badbg:rgba(192,57,47,.08);
+  --violet:#0A3FA8;
   --r:14px; --r2:10px;
-  --navy:#222f4e;--navy2:#18223a;--onnavy:#eef2f9;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --navy:#0B4FD3;--navy2:#0B4FD3;--onnavy:#eef2f9;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -33,7 +33,7 @@ input,select,textarea{font:inherit;color:inherit}
 /* ---------- shell ---------- */
 header.top{
   position:sticky;top:0;z-index:60;
-  background:rgba(34,47,78,.96);
+  background:rgba(11,79,211,.96);
   backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);
   padding:12px 16px 0;
@@ -102,7 +102,7 @@ label.f>span em{font-style:normal;color:var(--txt3);opacity:.7}
   border-radius:var(--r2);padding:10px 11px;font-size:15px;outline:none;
   transition:border-color .12s,background .12s;
 }
-.inp:focus{border-color:var(--acc);background:#eceff6}
+.inp:focus{border-color:var(--acc);background:#E3ECFD}
 select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--txt3) 50%),linear-gradient(135deg,var(--txt3) 50%,transparent 50%);background-position:calc(100% - 16px) 51%,calc(100% - 11px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
 textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:12.5px;line-height:1.5}
 .inp[type=number]{font-family:var(--mono)}
@@ -114,7 +114,7 @@ textarea.inp{resize:vertical;min-height:80px;font-family:var(--mono);font-size:1
 .suf .inp{padding-right:26px}
 
 .btn{
-  background:var(--acc);color:#ffffff;border:none;border-radius:var(--r2);
+  background:var(--acc);color:#ffffff;border:none;border-radius:999px;
   padding:11px 15px;font-weight:700;font-size:14px;
 }
 .btn:active{transform:scale(.985)}
@@ -218,7 +218,7 @@ code{font-family:var(--mono);font-size:12px;background:var(--bg2);padding:1.5px 
 
 footer.act{
   position:fixed;left:0;right:0;bottom:0;z-index:70;
-  background:linear-gradient(0deg,#f6f8fb 68%,rgba(246,248,251,.86));
+  background:linear-gradient(0deg,#EDF2FB 68%,rgba(237,242,251,.86));
   border-top:1px solid var(--line);padding:11px 16px calc(11px + env(safe-area-inset-bottom));
   display:flex;gap:9px;align-items:center;
 }
@@ -259,14 +259,14 @@ header small{color:rgba(238,242,249,.72) !important}
 header .cnt{color:rgba(238,242,249,.62)}
 .calcbtn{color:#fff !important;border-color:rgba(255,255,255,.28) !important;
  background:rgba(255,255,255,.08)}
-.lg,.logo{background:#18223a !important;border:1px solid rgba(255,255,255,.13);
+.lg,.logo{background:#0B4FD3 !important;border:1px solid rgba(255,255,255,.13);
  display:grid;place-items:center}
 /* primary action carries the brand orange; navy type on it clears 5:1 */
-.btn{background:var(--acc);color:#16203a}
+.btn{background:var(--acc);color:#fff}
 .btn.ghost{background:var(--card);color:var(--acc2)}
-#a2hs button{background:var(--acc);color:#16203a}
+#a2hs button{background:var(--acc);color:#fff}
 .rk{background:rgba(26,36,56,.78)}
-.deal.t1 .rk{background:var(--acc);color:#16203a}
+.deal.t1 .rk{background:var(--acc);color:#fff}
 
 /* the calculator's header is the same navy bar, tabs and all */
 header.top{border-bottom-color:rgba(255,255,255,.10)}
@@ -293,14 +293,14 @@ label.f.sm2 .inp{padding:8px 9px}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Deal Engine">
+<meta name="apple-mobile-web-app-title" content="Deal Finder">
 </head>
 <body>
 <header class="top">
   <div class="brand">
-    <div class="logo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#e9782a"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
+    <div class="logo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.6c-3.6 0-6.5 2.9-6.5 6.5 0 4.7 6.5 12.3 6.5 12.3s6.5-7.6 6.5-12.3c0-3.6-2.9-6.5-6.5-6.5z" fill="#F2660D"/><circle cx="12" cy="9.1" r="2.6" fill="#fff"/></svg></div>
     <div>
-      <h1>Deal Engine</h1>
+      <h1>Deal Finder</h1>
       <small id="brandSub">no property loaded</small>
     </div>
     <div class="spacer"></div>
@@ -2063,7 +2063,7 @@ loadDemo("mcallen");
     window.addEventListener("beforeinstallprompt",function(ev){
       ev.preventDefault(); deferred=ev;
       if(bar) return;
-      build('<div class="at"><b>Install Deal Engine</b>Runs full screen, opens offline.</div>'+
+      build('<div class="at"><b>Install Deal Finder</b>Runs full screen, opens offline.</div>'+
             '<button id="a2hsGo">Install</button>');
       var go=document.getElementById("a2hsGo");
       if(go) go.onclick=function(){
