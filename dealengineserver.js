@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const BUILD = '2026-08-31.4';
+const BUILD = '2026-09-02.5';
 const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const ROOT = __dirname;
 
@@ -65,6 +65,56 @@ function warm() {
   if (!centralOn() || Date.now() - lastWarm < 60000) return;
   lastWarm = Date.now();
   fetch(URL_BASE + '/healthz', { signal: AbortSignal.timeout(45000) }).catch(() => {});
+}
+
+/* ------------------------------------------------------------ plans --- */
+/* Thirty days, then it needs paying for.
+ *
+ * There is no database here on purpose — the privacy statement promises that
+ * searches never reach this server, and adding one to hold a plan would be a
+ * poor trade. So the plan lives in My Apps, keyed by the account, and this
+ * process keeps a short-lived copy in memory to avoid asking on every click.
+ *
+ * The rule when My Apps cannot be reached is: let them in. A person who has
+ * paid must never be shut out of the app because an accounts service is
+ * asleep, and the cost of occasionally carrying somebody whose trial lapsed
+ * during an outage is nothing next to that.                                 */
+
+const PLAN_TTL_MS = Number(process.env.PLAN_TTL_MS || 10 * 60 * 1000);
+const planCache = new Map();            // email -> { at, plan }
+const trialAsked = new Set();           // accounts whose trial has been settled
+const tenantOf = email => 'account:' + String(email || '').toLowerCase();
+
+const OPEN = { plan: 'pro', trial: false, days_left: null, expires_on: null,
+               source: '', unknown: true };
+
+async function planFor(email, { force = false } = {}) {
+  const hit = planCache.get(email);
+  if (!force && hit && Date.now() - hit.at < PLAN_TTL_MS) return hit.plan;
+
+  /* Until an account's trial has actually been settled, keep asking for it
+     rather than merely asking what the plan is. A failed call must not be
+     mistaken for "this one has had its trial" — that would leave somebody who
+     signed up during an outage staring at an upgrade page having never had
+     their thirty days. My Apps only ever starts one, so asking twice is free. */
+  const settle = !trialAsked.has(email);
+  const c = await central(settle ? '/api/v1/trial' : '/api/v1/plan', { tenant: tenantOf(email) });
+  if (!c.ok) {
+    // Keep whatever was last known; if nothing was, let them in.
+    const fallback = hit ? hit.plan : OPEN;
+    planCache.set(email, { at: Date.now() - (PLAN_TTL_MS - 60000), plan: fallback });
+    return fallback;
+  }
+  if (settle) trialAsked.add(email);
+  if (c.started) console.log(`Trial started for ${email} — ${c.days_left} days`);
+  const plan = {
+    plan: c.plan === 'pro' ? 'pro' : 'free',
+    trial: !!c.trial, trial_over: !!c.trial_over,
+    days_left: c.days_left ?? null, expires_on: c.expires_on || null,
+    source: c.source || ''
+  };
+  planCache.set(email, { at: Date.now(), plan });
+  return plan;
 }
 
 /* -------------------------------------------------------- sessions --- */
@@ -187,7 +237,7 @@ const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
 </style></head>
 <body><form class="box" method="POST" action="${mode === 'up' ? '/signup' : '/signin'}">
   <h1>Deal Finder</h1>
-  <div class="sub">${mode === 'up' ? 'One account works in every one of your apps.'
+  <div class="sub">${mode === 'up' ? 'Free for 30 days — no card. One account works in every one of your apps.'
     : 'Sign in with your account — the same one your other apps use.'}</div>
   ${mode === 'up' ? `<label for="name">Your name</label>
   <input id="name" name="name" autocomplete="name" value="${esc(values.name)}">` : ''}
@@ -200,10 +250,54 @@ const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
   <input id="code" name="code" autocapitalize="characters" placeholder="DEA-30D-XXXX-XXXXXX" value="${esc(values.code)}">` : ''}
   <button>${mode === 'up' ? 'Create my account' : 'Sign in'}</button>
   ${msg ? `<div class="msg">${esc(msg)}</div>` : ''}
+  ${mode === 'up' ? '' : '<div class="alt" style="border:0;padding-top:12px;margin-top:12px"><a href="/forgot">Forgot your password?</a></div>'}
   <div class="alt">${mode === 'up'
     ? 'Already have an account? <a href="/signin">Sign in</a>'
     : 'No account yet? <a href="/signup">Create one</a>'}</div>
   <div class="foot">build ${BUILD} · <a href="/privacy" target="_blank">privacy</a></div>
+</form></body></html>`;
+
+/* ------------------------------------------------------------ upgrade --- */
+/* What somebody sees the day after their trial runs out. Deliberately not a
+   dead end: their account still works, the page says exactly what happened,
+   and a code entered here puts them straight back in. */
+const upgradePage = (email, msg) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deal Finder — your trial has ended</title>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  :root{--ink:#101822;--sub:#5A6A80;--line:#DBE4F2;--brand:#0B4FD3;--accent:#F2660D;--bad:#B42318}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:#EDF2FB;color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  .box{width:100%;max-width:420px;background:#fff;border:1px solid var(--line);
+    border-radius:16px;padding:26px 22px;box-shadow:0 8px 30px rgba(11,40,90,.09)}
+  h1{margin:0 0 6px;font-size:23px;letter-spacing:-.02em;color:var(--brand)}
+  p{color:var(--sub);font-size:14px}
+  label{display:block;font-size:12.5px;color:var(--sub);margin:16px 0 5px}
+  input{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);
+    border-radius:10px;background:#fbfcfe;color:var(--ink);text-transform:uppercase}
+  button{width:100%;margin-top:14px;padding:13px;font-size:15.5px;font-weight:700;
+    border:0;border-radius:999px;background:var(--accent);color:#fff}
+  .msg{margin-top:12px;padding:10px 12px;border-radius:9px;font-size:13.5px;
+    background:#fde8e6;border:1px solid #f5c6c2;color:var(--bad)}
+  .foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--sub);text-align:center}
+  a{color:var(--brand);text-decoration:none}
+</style></head><body>
+<form class="box" method="POST" action="/upgrade">
+  <h1>Your free trial has ended</h1>
+  <p>Thirty days are up. Nothing has been deleted — your account and your county
+     setup are exactly as you left them, and a code below puts you straight back in.</p>
+  <label for="code">Upgrade code</label>
+  <input id="code" name="code" autocapitalize="characters" placeholder="DEA-30D-XXXX-XXXXXX" autofocus>
+  <button>Unlock Deal Finder</button>
+  ${msg ? `<div class="msg">${esc(msg)}</div>` : ''}
+  <div class="foot">Signed in as ${esc(email)} ·
+    <a href="/signout">sign out</a><br>
+    Need a code? <a href="mailto:steve.smith@buddyrents.com">steve.smith@buddyrents.com</a></div>
 </form></body></html>`;
 
 /* ------------------------------------------------------------ privacy --- */
@@ -258,14 +352,21 @@ apps at once). To ask about your account or request deletion, contact
 /* The pages themselves know nothing about accounts — they were written for a
    site that had none. Rather than edit three large HTML files, the one thing
    they now need is added on the way out: who you are, and a way to sign out. */
-function sendPage(res, rel, email) {
+function sendPage(res, rel, email, plan) {
   fs.readFile(path.join(ROOT, rel), 'utf8', (err, html) => {
     if (err) return send(res, 404, 'Not found', { 'Content-Type': 'text/plain' });
+    /* The countdown only appears in the last week. Told every day from day one
+       it is nagging; told in the last few days it is useful. */
+    const d = plan && plan.trial ? plan.days_left : null;
+    const trial = d !== null && d <= 7
+      ? ` · <span style="color:#B45309;font-weight:600">${
+          d === 0 ? 'trial ends today' : d === 1 ? '1 day left' : d + ' days left'}</span>`
+      : '';
     const badge = `<div id="de-account" style="position:fixed;left:8px;bottom:8px;z-index:2147483000;
       font:11.5px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
       background:rgba(255,255,255,.92);border:1px solid #DBE4F2;border-radius:999px;
       padding:5px 11px;color:#5A6A80;box-shadow:0 2px 8px rgba(11,40,90,.14)">
-      ${esc(email)} · <a href="/signout" style="color:#0A3FA8;text-decoration:none">sign out</a></div>`;
+      ${esc(email)}${trial} · <a href="/signout" style="color:#0A3FA8;text-decoration:none">sign out</a></div>`;
     const out = html.includes('</body>') ? html.replace('</body>', badge + '\n</body>') : html + badge;
     send(res, 200, out, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -305,6 +406,10 @@ const server = http.createServer(async (req, res) => {
         : (c.suspended ? 'That account has been suspended.' : 'Wrong email or password.');
       return send(res, 200, signInPage(why, 'in', { email }));
     }
+    /* Signing in is the moment to look at the plan afresh. Somebody who has
+       just paid signs out and back in to see it, and being told to wait ten
+       minutes for a cache would be a poor answer. */
+    planCache.delete(email);
     return send(res, 302, '', { Location: '/', 'Set-Cookie': cookieHeader(signSession(email)) });
   }
 
@@ -331,6 +436,37 @@ const server = http.createServer(async (req, res) => {
     return send(res, 302, '', { Location: '/signin', 'Set-Cookie': 'de=; Path=/; Max-Age=0' });
   }
 
+  /* Forgotten passwords live in My Apps, because that is where passwords are.
+     Every app carries this same plain link. */
+  if (p === '/forgot') {
+    if (!URL_BASE) {
+      return send(res, 200, signInPage(
+        'Password resets are not set up yet — contact steve.smith@buddyrents.com.'));
+    }
+    return send(res, 302, '', { Location: URL_BASE + '/forgot?app=' + encodeURIComponent('Deal Finder') });
+  }
+
+  /* Redeeming an upgrade code. My Apps verifies it — this app never holds the
+     signing secret, so a copy of this file is no help in making one. */
+  if (p === '/upgrade' && req.method === 'POST') {
+    const who = readSession(cookieOf(req, 'de'));
+    if (!who) return send(res, 302, '', { Location: '/signin' });
+    const f = new URLSearchParams(await readBody(req));
+    const code = (f.get('code') || '').trim().toUpperCase();
+    if (!code) return send(res, 200, upgradePage(who, 'Enter the code you were given.'));
+
+    const c = await central('/api/v1/redeem-tenant', { tenant: tenantOf(who), tenantName: who, code });
+    if (!c.ok) {
+      return send(res, 200, upgradePage(who, c.unavailable
+        ? "Couldn't reach the accounts service — try again in a moment."
+        : (c.error || 'That code is not valid.')));
+    }
+    planCache.delete(who);
+    await planFor(who, { force: true });
+    console.log(`${who} upgraded with a code until ${c.expires_on}`);
+    return send(res, 302, '', { Location: '/' });
+  }
+
   // Assets everyone may have, signed in or not.
   if (PUBLIC.has(p)) return sendFile(res, p.slice(1));
 
@@ -340,19 +476,25 @@ const server = http.createServer(async (req, res) => {
      whether to show paid features. */
   if (p === '/api/me') {
     if (!email) return json(res, 401, { error: 'Not signed in' });
-    const c = await central('/api/v1/status', { account: email });
+    const plan = await planFor(email);
     return json(res, 200, {
       email,
-      plan: c.ok ? (c.plan || 'free') : 'free',
-      expires_on: c.ok ? (c.expires_on || null) : null,
-      accounts_reachable: !c.unavailable
+      plan: plan.plan,
+      trial: plan.trial,
+      days_left: plan.days_left,
+      expires_on: plan.expires_on,
+      accounts_reachable: !plan.unknown
     });
   }
 
   const page = PAGES[p];
   if (page) {
     if (!email) return send(res, 302, '', { Location: '/signin' });
-    return sendPage(res, page, email);
+    const plan = await planFor(email);
+    // A lapsed trial gets the upgrade page instead of the app. Anything the
+    // plan lookup could not establish counts as allowed — see planFor.
+    if (plan.plan !== 'pro') return send(res, 200, upgradePage(email, ''));
+    return sendPage(res, page, email, plan);
   }
 
   // Anything else that exists in the repo, for signed-in people only.
