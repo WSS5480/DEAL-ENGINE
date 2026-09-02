@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const BUILD = '2026-09-02.5';
+const BUILD = '2026-09-02.6';
 const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const ROOT = __dirname;
 
@@ -257,6 +257,58 @@ const signInPage = (msg, mode = 'in', values = {}) => `<!doctype html>
   <div class="foot">build ${BUILD} · <a href="/privacy" target="_blank">privacy</a></div>
 </form></body></html>`;
 
+/* ------------------------------------------------------- subscription --- */
+/* The same card the other apps show, on a page of its own because this app's
+   pages are static files with no obvious place to put one. Same three states,
+   same wording, same box to type a code into. */
+const accountPage = (email, plan, msg, good) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deal Finder — subscription</title>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  :root{--ink:#101822;--sub:#5A6A80;--line:#DBE4F2;--brand:#0B4FD3;--accent:#F2660D;--bad:#B42318;--ok:#15803d}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:#EDF2FB;color:var(--ink);padding:24px 18px;
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  .box{width:100%;max-width:440px;margin:0 auto;background:#fff;border:1px solid var(--line);
+    border-radius:16px;padding:22px;box-shadow:0 8px 30px rgba(11,40,90,.09)}
+  h1{margin:0 0 2px;font-size:20px;letter-spacing:-.02em}
+  .pill{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;
+    background:#E3ECFD;color:#0A3FA8;margin-left:6px;vertical-align:2px}
+  .pill.warn{background:#FEF0DC;color:#8a5206}
+  p{color:var(--sub);font-size:14px}
+  label{display:block;font-size:12.5px;color:var(--sub);margin:18px 0 5px}
+  input{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);
+    border-radius:10px;background:#fbfcfe;color:var(--ink);text-transform:uppercase}
+  button{width:100%;margin-top:12px;padding:13px;font-size:15.5px;font-weight:700;
+    border:0;border-radius:999px;background:var(--accent);color:#fff}
+  .msg{margin-top:12px;padding:10px 12px;border-radius:9px;font-size:13.5px;
+    background:#fde8e6;border:1px solid #f5c6c2;color:var(--bad)}
+  .msg.ok{background:#e6f6ea;border-color:#b6e2c3;color:var(--ok)}
+  .foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--sub);text-align:center}
+  a{color:var(--brand);text-decoration:none}
+</style></head><body>
+<form class="box" method="POST" action="/upgrade">
+  <input type="hidden" name="back" value="/account">
+  <h1>Subscription${plan.plan === 'pro'
+    ? (plan.trial ? `<span class="pill warn">Free trial · ${plan.days_left} day${plan.days_left === 1 ? '' : 's'} left</span>`
+                  : '<span class="pill">Paid</span>')
+    : '<span class="pill warn">' + (plan.trial_over ? 'Trial ended' : 'Free') + '</span>'}</h1>
+  <p>${plan.plan === 'pro'
+      ? (plan.trial
+          ? `Your trial runs to ${esc(plan.expires_on || '')}. Nothing is limited until then.`
+          : `Paid${plan.expires_on ? ' through ' + esc(plan.expires_on) : ''}. Thank you.`)
+      : 'Deal Finder needs a subscription to open. Your account, your counties and your settings are all still here.'}</p>
+  <label for="code">Have an upgrade code?</label>
+  <input id="code" name="code" autocapitalize="characters" placeholder="DEA-30D-XXXX-XXXXXX">
+  <button>Apply code</button>
+  ${msg ? `<div class="msg${good ? ' ok' : ''}">${esc(msg)}</div>` : ''}
+  <p style="margin-top:10px;font-size:12.5px">Days on a code are added to whatever you have left.</p>
+  <div class="foot">${esc(email)} · <a href="/">back to Deal Finder</a> · <a href="/signout">sign out</a></div>
+</form></body></html>`;
+
 /* ------------------------------------------------------------ upgrade --- */
 /* What somebody sees the day after their trial runs out. Deliberately not a
    dead end: their account still works, the page says exactly what happened,
@@ -366,7 +418,9 @@ function sendPage(res, rel, email, plan) {
       font:11.5px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
       background:rgba(255,255,255,.92);border:1px solid #DBE4F2;border-radius:999px;
       padding:5px 11px;color:#5A6A80;box-shadow:0 2px 8px rgba(11,40,90,.14)">
-      ${esc(email)}${trial} · <a href="/signout" style="color:#0A3FA8;text-decoration:none">sign out</a></div>`;
+      ${esc(email)}${trial} ·
+      <a href="/account" style="color:#0A3FA8;text-decoration:none">subscription</a> ·
+      <a href="/signout" style="color:#0A3FA8;text-decoration:none">sign out</a></div>`;
     const out = html.includes('</body>') ? html.replace('</body>', badge + '\n</body>') : html + badge;
     send(res, 200, out, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -448,22 +502,42 @@ const server = http.createServer(async (req, res) => {
 
   /* Redeeming an upgrade code. My Apps verifies it — this app never holds the
      signing secret, so a copy of this file is no help in making one. */
+  if (p === '/account') {
+    const who = readSession(cookieOf(req, 'de'));
+    if (!who) return send(res, 302, '', { Location: '/signin' });
+    return send(res, 200, accountPage(who, await planFor(who), '', false));
+  }
+
   if (p === '/upgrade' && req.method === 'POST') {
     const who = readSession(cookieOf(req, 'de'));
     if (!who) return send(res, 302, '', { Location: '/signin' });
     const f = new URLSearchParams(await readBody(req));
     const code = (f.get('code') || '').trim().toUpperCase();
-    if (!code) return send(res, 200, upgradePage(who, 'Enter the code you were given.'));
+    /* Which page they came from decides which page an error goes back to: the
+       wall for somebody locked out, the subscription card for somebody just
+       topping up. Getting this wrong strands people on the wrong screen. */
+    const fromAccount = f.get('back') === '/account';
+    const fail = async text => fromAccount
+      ? send(res, 200, accountPage(who, await planFor(who), text, false))
+      : send(res, 200, upgradePage(who, text));
+
+    if (!code) return fail('Enter the code you were given.');
 
     const c = await central('/api/v1/redeem-tenant', { tenant: tenantOf(who), tenantName: who, code });
     if (!c.ok) {
-      return send(res, 200, upgradePage(who, c.unavailable
+      return fail(c.unavailable
         ? "Couldn't reach the accounts service — try again in a moment."
-        : (c.error || 'That code is not valid.')));
+        : (c.error || 'That code is not valid.'));
     }
     planCache.delete(who);
-    await planFor(who, { force: true });
+    const fresh = await planFor(who, { force: true });
     console.log(`${who} upgraded with a code until ${c.expires_on}`);
+    if (fromAccount) {
+      return send(res, 200, accountPage(who, fresh,
+        c.added_to_existing
+          ? `${c.days} days added — you are covered until ${c.expires_on}.`
+          : `Unlocked until ${c.expires_on}.`, true));
+    }
     return send(res, 302, '', { Location: '/' });
   }
 
