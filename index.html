@@ -287,7 +287,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=29" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=30" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -513,7 +513,7 @@ label.f.sm2 .inp{padding:8px 9px}
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-08-17 · 29 · for-sale listings get a link · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-09-07 · 30 · empty filters explain themselves · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -979,14 +979,51 @@ var LIST=[], RENDO=null, PRE=null, SRCKEY="";
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
 var RAW=[], LABEL="";
 var FILTERS=[
-  ["ck_sale", function(p){ return p.flag&&p.flag.sale }],
-  ["ck_tax",  function(p){ return p.flag&&p.flag.tax }],
-  ["ck_abs",  function(p){ return String(p.absentee).toUpperCase()==="Y" }],
-  ["ck_out",  function(p){ return !!p.outoftown }],
-  ["ck_stamp",function(p){ return p.score>=45 }],
-  ["ck_cf",   function(p){ return p.cfMo>0 }],
-  ["ck_photo",function(p){ return isFinite(p.lat) && p.lat!==null }]
+  ["ck_sale", function(p){ return p.flag&&p.flag.sale }, "For sale"],
+  ["ck_tax",  function(p){ return p.flag&&p.flag.tax },  "Tax sale"],
+  ["ck_abs",  function(p){ return String(p.absentee).toUpperCase()==="Y" }, "Absentee"],
+  ["ck_out",  function(p){ return !!p.outoftown }, "Out-of-town owner"],
+  ["ck_stamp",function(p){ return p.score>=45 }, "45+ score"],
+  ["ck_cf",   function(p){ return p.cfMo>0 }, "Cash flows"],
+  ["ck_photo",function(p){ return isFinite(p.lat) && p.lat!==null }, "Has a photo"]
 ];
+/* "0 of 3,000" with no explanation is the worst answer this app can give. The
+   boxes AND together on purpose — "absentee AND cash flows" is the useful
+   query — but that also means one dead filter takes the whole list with it.
+   So when the result is empty, say which box is responsible and how many each
+   would have returned on its own.
+
+   The pair that catches everyone is For sale + Tax sale. A house someone is
+   advertising is not simultaneously on the county's back-taxes auction list;
+   asking for both is asking for a contradiction. */
+function filterWhy(all,on){
+  var counts=on.map(function(f){
+    return {name:f[2]||f[0], n:all.filter(f[1]).length};
+  });
+  var dead=counts.filter(function(c){ return c.n===0 });
+  var live=counts.filter(function(c){ return c.n>0 });
+  var h=all.length.toLocaleString()+' parcels are in the list. ';
+
+  if(dead.length){
+    h+='<b>'+dead.map(function(c){return c.name}).join(' and ')+'</b> matches '+
+       (dead.length>1?'none of them':'none of them')+', so nothing can get through. ';
+    if(dead.some(function(c){return c.name==="For sale"}))
+      h+='The for-sale half of flags.json is empty until a RentCast key is set, so that box '+
+         'can never match anything yet. ';
+    if(dead.some(function(c){return c.name==="Tax sale"}))
+      h+='Every parcel on the tax list right now is raw land or sits outside this city, so a '+
+         'houses search cannot reach them \u2014 try <b>Lots &amp; land</b> with the city set to '+
+         'any, or open the <b>Flagged</b> tab. ';
+  }else if(on.length>1){
+    var both=(on.length===2&&counts[0].name==="For sale"&&counts[1].name==="Tax sale");
+    h+='Each box matches something on its own \u2014 '+
+       counts.map(function(c){return '<b>'+c.name+'</b> '+c.n.toLocaleString()}).join(', ')+
+       ' \u2014 but nothing satisfies all of them at once. ';
+    if(both) h+='<b>For sale</b> and <b>Tax sale</b> almost never both apply: a house someone '+
+                'is advertising is not also on the county\u2019s back-taxes auction list. ';
+  }
+  return h+'Untick one and the list comes back.';
+}
 function activeFilters(){
   return FILTERS.filter(function(f){ var e=$(f[0]); return e&&e.checked });
 }
@@ -1030,8 +1067,7 @@ function render(rows,label,jump,oOverride,pre){
   if(!out.length){
     box.innerHTML= on.length
       ? '<div class="card"><div class="empty"><b>Nothing left after those filters</b>'+
-        all.length.toLocaleString()+' parcels are in the list, none of them tick every box you have on. '+
-        'Untick one.</div></div>'
+        filterWhy(all,on)+'</div></div>'
       : '<div class="card"><div class="empty"><b>Nothing matched</b>No parcels fit that buy box. '+
         'Widen the sq ft or year range, or clear the ZIP filter.</div></div>';
     $("footT").textContent = on.length ? "Filtered to none" : "No matches";
