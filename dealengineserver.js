@@ -585,7 +585,10 @@ const server = http.createServer(async (req, res) => {
 
   const page = PAGES[p];
   if (page) {
-    if (!email) return send(res, 302, '', { Location: '/signin' });
+    /* An invite link that lands on the app itself (/?code=…) is somebody new:
+       send them to sign-up with the code, not to sign-in. */
+    const inv = (url.searchParams.get('code') || '').trim();
+    if (!email) return send(res, 302, '', { Location: inv ? '/signup?code=' + encodeURIComponent(inv.toUpperCase().slice(0, 40)) : '/signin' });
     const plan = await planFor(email);
     // A lapsed trial gets the upgrade page instead of the app. Anything the
     // plan lookup could not establish counts as allowed — see planFor.
