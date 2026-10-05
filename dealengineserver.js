@@ -444,7 +444,10 @@ const server = http.createServer(async (req, res) => {
     if (!centralOn()) {
       return send(res, 200, signInPage('This site is not connected to My Apps yet — set MY_APPS_URL, MY_APPS_SLUG and MY_APPS_SECRET.'));
     }
-    return send(res, 200, signInPage('', p === '/signup' ? 'up' : 'in', {}));
+    /* /signup?code=DEA-30D-… pre-fills the code, so a free-time invite is one link */
+    const pre = (url.searchParams.get('code') || '').trim().toUpperCase().slice(0, 40);
+    if (pre && p === '/signin') return send(res, 302, '', { Location: '/signup?code=' + encodeURIComponent(pre) });
+    return send(res, 200, signInPage('', p === '/signup' ? 'up' : 'in', { code: pre }));
   }
 
   if (p === '/signin' && req.method === 'POST') {
