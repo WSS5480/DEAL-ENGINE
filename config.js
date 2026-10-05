@@ -26,3 +26,6 @@
  */
 window.DE_CONFIG = {
   streetViewKey: "AIzaSyCGX0yhftlouLhO9btLzb3YKgecE1zCQJk"
+,
+  rentcastKey: ""   // optional; RENTCAST_KEY on Render is better (stays off the page)
+};

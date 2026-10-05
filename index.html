@@ -240,6 +240,19 @@ label.f.sm2 .inp{padding:8px 9px}
 
 .fl{flex:none;display:inline-block;margin-left:7px;font-size:9px;font-weight:800;
  letter-spacing:.05em;padding:2px 5px;border-radius:4px;font-family:var(--mono)}
+.fl.pkg{background:rgba(60,79,128,.12);color:var(--violet);border:1px solid rgba(60,79,128,.32)}
+.pk{border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-top:10px;background:var(--bg2)}
+.pk .pt{display:flex;justify-content:space-between;gap:10px;font-weight:700;font-size:14px}
+.pk .ps{font-size:12px;color:var(--txt2);margin-top:3px;line-height:1.45}
+.pk .kv div{background:var(--card)}
+.pk .pm{display:flex;flex-wrap:wrap;gap:6px}
+.vcin{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.vcin label{display:block;font-size:11px;color:var(--txt2)}
+.vcin label span{display:block;margin-bottom:3px}
+.vcin .inp{padding:8px 10px}
+.led .vr{font-weight:500;color:var(--txt3);font-size:11.5px}
+.led .vt{font-style:normal;font-size:10.5px;color:var(--txt3)}
+.led s{color:var(--txt3)}
 .fl.sale{background:rgba(233,120,42,.14);color:var(--acc2);border:1px solid rgba(233,120,42,.34)}
 .fl.tax{background:rgba(192,57,47,.12);color:var(--bad);border:1px solid rgba(192,57,47,.30)}
 
@@ -287,7 +300,7 @@ label.f.sm2 .inp{padding:8px 9px}
   window.DE_HELD=function(){ return held };
 })();
 </script>
-<script src="config.js?v=30" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
+<script src="config.js?v=31" onload="window.CFG_LOAD=1" onerror="window.CFG_LOAD=0"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -450,6 +463,18 @@ label.f.sm2 .inp{padding:8px 9px}
       </div>
       <div class="status" id="svStatus"></div>
     </div></details>
+
+    <details class="acc" id="rcBox"><summary>RentCast values</summary><div class="bd">
+      <p class="hint">Powers <b>Pull RentCast value + rent</b> in each property's Value check. Best: set
+        <code>RENTCAST_KEY</code> in Render → deal-finder → Environment, and every device uses it.
+        Or paste a key here for this device only. Free tier is 50 calls a month; one pull uses two.</p>
+      <input class="inp" id="rc_key" placeholder="RentCast API key (optional if set on Render)">
+      <div class="row" style="margin-top:9px">
+        <button class="btn sm" id="rcSave">Save key</button>
+        <button class="btn ghost sm" id="rcClear">Remove</button>
+      </div>
+      <div class="status" id="rcStatus"></div>
+    </div></details>
   </div>
 
   <div id="src-find" class="sb" style="display:none;margin-top:12px">
@@ -510,10 +535,11 @@ label.f.sm2 .inp{padding:8px 9px}
     <label class="chip"><input type="checkbox" id="ck_stamp"><span>45+ score</span></label>
     <label class="chip"><input type="checkbox" id="ck_cf"><span>Cash flows</span></label>
     <label class="chip"><input type="checkbox" id="ck_photo"><span>Has a photo</span></label>
+    <label class="chip"><input type="checkbox" id="ck_pkg"><span>In a package</span></label>
   </div>
 </div>
 <div id="results"></div>
-<p id="buildTag">Build 2026-09-07 · 30 · empty filters explain themselves · <a href="#" id="bustCache">force refresh</a></p>
+<p id="buildTag">Build 2026-10-05 · 31 · packages + value check · <a href="#" id="bustCache">force refresh</a></p>
 
 </main>
 
@@ -665,7 +691,12 @@ function analyse(r,o){
   if(o&&o.model==="land") return analyseLand(r,o);
   if(o&&o.model==="comm") return analyseComm(r,o);
   var sqft=nz(r.sqft); if(sqft<=0) return null;
-  var arv=nz(r.arv)||sqft*nz(o.arvpsf);
+  /* per-property numbers you typed or pulled (value check panel) win over the
+     buy-box $/sf, which is one number for every house in the city */
+  var vk=valKey(r), V=VAL[vk]||{};
+  var arvBase=nz(r.arv)||sqft*nz(o.arvpsf);
+  var arv=nz(V.useArv)||arvBase;
+  var arvSrc=nz(V.useArv)?"set from value check":(nz(r.arv)?"from the list":money(nz(o.arvpsf))+"/sf");
   var rehab=nz(r.rehab)||sqft*nz(o.rehabpsf);
   var cad=nz(r.cad);
   var tax=(cad||arv*0.6)*pct(o.taxrate);
@@ -675,7 +706,8 @@ function analyse(r,o){
   var costs=P+rehab+P*pct(o.buyc)+loan*pct(o.points)+loan*(pct(o.rate)/12)*nz(o.hold)+m.carry+arv*pct(o.sellc);
   var profit=arv-costs;
   var cashIn=P*pct(o.down)+P*pct(o.buyc)+loan*pct(o.points)+loan*(pct(o.rate)/12)*nz(o.hold)+m.carry;
-  var rent=Math.round(sqft*nz(o.rentpsf)/25)*25;
+  var rent=nz(V.rent)||nz(V.rcRent)||Math.round(sqft*nz(o.rentpsf)/25)*25;
+  var rentSrc=nz(V.rent)?"typed in":nz(V.rcRent)?"RentCast":"$"+o.rentpsf+"/sf";
   var gsi=rent*12, noi=gsi*0.93-(gsi*0.24)-tax-2800;
   var mo=(function(L,rt,yr){if(L<=0)return 0;var i=rt/100/12,n=yr*12;return i===0?L/n:L*i/(1-Math.pow(1+i,-n))})(Math.max(0,P)*0.75,7.25,30);
   var anchor=cad||arv*0.75;
@@ -685,8 +717,10 @@ function analyse(r,o){
     margin:arv>0?profit/arv:0,cashIn:cashIn,rent:rent,cfMo:noi/12-mo,anchor:anchor,
     owner:r.owner||"",mail:r.mail||"",absentee:r.absentee||"",
     outoftown:!!r.outoftown,exempt:r.exempt||"",pid:r.pid||"",geo:r.geo||"",link:r.link||"",
-    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,deed:r.deed||null,legal:r.legal||""};
+    mailcity:r.mailcity||"",lat:r.lat,lon:r.lon,deed:r.deed||null,legal:r.legal||"",
+    landsqft:nz(r.landsqft),vk:vk,arvBase:arvBase,arvSrc:arvSrc,rentSrc:rentSrc,raw:r,_o:o};
   p.absentee=r.absentee||"";
+  p.vc=valueCheck(p,V);
   p.flag=flagFor(p);
   p.score=score(p,o);
   p.flags=[];
@@ -695,6 +729,7 @@ function analyse(r,o){
   if(p.arv<nz(o.arvmin)||p.arv>nz(o.arvmax)) p.flags.push("ARV outside your band");
   if(p.cut>0.55) p.flags.push("needs >55% off — nobody signs that");
   if(p.offer<=0) p.flags.push("no offer possible — rehab eats it");
+  if(p.vc&&p.vc.mid&&p.arv<p.vc.mid*0.9) p.flags.push("ARV is under what it's likely worth as-is ("+money(p.vc.mid)+") — check the value panel");
   p.good=[];
   if(String(p.absentee).toUpperCase()==="Y") p.good.push("no homestead exemption — owner doesn’t live there");
   if(p.outoftown) p.good.push("owner mails to "+(p.mailcity||"another town"));
@@ -974,6 +1009,261 @@ function titleBlock(p){
   return h;
 }
 
+/* ---- value check ------------------------------------------------------------
+   The ranking runs on one $/sf for every house in the city. That is fine for
+   sorting 3,000 doors and wrong for any one of them: a 580 sf house does not
+   sell at the same $/sf as a 1,400 sf one. So the opened card lines up every
+   independent opinion of value it can get and shows where they agree.
+
+   Zillow, Ownerly and the MLS cannot be pulled (their terms forbid it), so
+   those are typed in. RentCast is a licensed API and is pulled. Everything
+   typed or pulled is kept on this device, per parcel. */
+var VAL=(function(){ try{ return JSON.parse(localStorage.getItem("de_val")||"{}")||{} }catch(e){ return {} } })();
+function saveVal(){ try{ localStorage.setItem("de_val",JSON.stringify(VAL)) }catch(e){} }
+function valKey(r){ return String(r.pid||((r.address||"")+"|"+(r.zip||""))) }
+var OPENKEY=null;
+
+function median(a){ if(!a.length) return 0; var b=a.slice().sort(function(x,y){return x-y}), m=Math.floor(b.length/2);
+  return b.length%2?b[m]:(b[m-1]+b[m])/2 }
+
+function valueCheck(p,V){
+  var rows=[];
+  if(p.cad) rows.push({k:"County market value",v:p.cad});
+  if(p.rent){
+    var yr=p.rent*12;
+    rows.push({k:"Rent × 10–12 ("+money(p.rent)+"/mo, "+p.rentSrc+")",v:yr*11,lo:yr*10,hi:yr*12,
+               rough:p.rentSrc!=="RentCast"&&p.rentSrc!=="typed in"});
+  }
+  if(nz(V.rcValue)) rows.push({k:"RentCast AVM"+(V.rcComps?" ("+V.rcComps+" comps)":""),v:nz(V.rcValue),lo:nz(V.rcLow),hi:nz(V.rcHigh)});
+  if(nz(V.zest)) rows.push({k:"Zestimate (typed in)",v:nz(V.zest)});
+  if(nz(V.other)) rows.push({k:"Other estimate (typed in)",v:nz(V.other)});
+  if(!rows.length) return null;
+  /* a flat-$/sf rent only counts when nothing better than the county is on file */
+  var real=rows.filter(function(r){return !r.rough});
+  var use=real.length>=2?real:rows;
+  var m0=median(use.map(function(r){return r.v}));
+  /* one source 30% away from the middle is an outlier, not a vote — the
+     $157k Zestimate on a house three sources put at $100k */
+  use.forEach(function(r){ r.out=m0>0&&Math.abs(r.v-m0)/m0>0.30 });
+  rows.forEach(function(r){ if(use.indexOf(r)<0) r.skip=true });
+  var kept=use.filter(function(r){return !r.out});
+  if(!kept.length) kept=use;
+  var mid=median(kept.map(function(r){return r.v}));
+  var lo=Math.min.apply(null,kept.map(function(r){return r.v})),
+      hi=Math.max.apply(null,kept.map(function(r){return r.v}));
+  return {rows:rows,mid:mid,lo:lo,hi:hi,n:kept.length};
+}
+
+function valueBlock(p){
+  if(p.kind) return "";
+  var V=VAL[p.vk]||{}, vc=p.vc, h='<div class="fh" style="margin-top:14px">Value check</div>';
+  if(vc){
+    vc.rows.forEach(function(r){
+      var tag=r.out?' <i class="vt">outlier — ignored</i>':r.skip?' <i class="vt">rough — not counted</i>':"";
+      var v=money(r.v)+(r.lo&&r.hi?' <span class="vr">'+money(r.lo)+'–'+money(r.hi)+'</span>':"");
+      h+='<div class="led"><span class="l">'+r.k+tag+'</span><b>'+(r.out||r.skip?'<s>'+v+'</s>':v)+'</b></div>';
+    });
+    h+='<div class="led tot"><span class="l">Likely worth as-is'+(vc.n>1?' ('+vc.n+' agree)':'')+'</span><b>'+
+       money(vc.mid)+(vc.hi>vc.lo?' <span class="vr">'+money(vc.lo)+'–'+money(vc.hi)+'</span>':'')+'</b></div>';
+    var d=vc.mid>0?(p.arv-vc.mid)/vc.mid:0;
+    h+='<div class="led"><span class="l">Your ARV ('+p.arvSrc+')</span><b class="'+(d<-0.1?"neg":"")+'">'+money(p.arv)+
+       ' <span class="vr">'+(d>=0?"+":"")+Math.round(d*100)+'%</span></b></div>';
+  }
+  h+='<div class="vcin">'+
+     '<label><span>Zestimate</span><input class="inp" inputmode="numeric" data-vcin="zest" data-k="'+p.vk+'" value="'+(V.zest||"")+'" placeholder="$"></label>'+
+     '<label><span>Other (Ownerly, Redfin…)</span><input class="inp" inputmode="numeric" data-vcin="other" data-k="'+p.vk+'" value="'+(V.other||"")+'" placeholder="$"></label>'+
+     '<label><span>Rent / mo</span><input class="inp" inputmode="numeric" data-vcin="rent" data-k="'+p.vk+'" value="'+(V.rent||"")+'" placeholder="'+(V.rcRent?money(V.rcRent):"$")+'"></label>'+
+     '<label><span>ARV</span><input class="inp" inputmode="numeric" data-vcin="useArv" data-k="'+p.vk+'" value="'+(V.useArv||"")+'" placeholder="'+money(p.arvBase)+'"></label>'+
+     '</div><div class="phrow" style="margin-top:9px">'+
+     '<button class="phbtn" type="button" data-vc="rc" data-k="'+p.vk+'">'+(V.rcAt?"Re-pull RentCast":"Pull RentCast value + rent")+'</button>'+
+     (vc&&vc.mid&&Math.abs(p.arv-vc.mid)>500?'<button class="phbtn" type="button" data-vc="arv" data-k="'+p.vk+'" data-v="'+Math.round(vc.mid)+'">Use '+money(vc.mid)+' as ARV</button>':'')+
+     (Object.keys(V).length?'<button class="phbtn" type="button" data-vc="reset" data-k="'+p.vk+'">Reset</button>':'')+
+     '</div><div class="status" data-vcs="'+p.vk+'">'+(V.rcAt?'RentCast pulled '+V.rcAt+'.':'')+'</div>'+
+     '<p class="hint" style="margin-top:7px">Zillow and Ownerly can’t be pulled automatically — their terms '+
+     'forbid it — so type the number you see. ARV and rent typed here re-run this house’s offer. '+
+     'Saved on this device.</p>';
+  return h;
+}
+
+/* ---- RentCast --------------------------------------------------------------
+   Goes through the server first (/api/rentcast/…) so a RENTCAST_KEY set on
+   Render serves every device and nobody hits CORS. Opened from a desktop file
+   with no server, it calls RentCast directly with the key saved here. */
+function rcKey(){
+  try{ if(window.DE_CONFIG&&DE_CONFIG.rentcastKey) return DE_CONFIG.rentcastKey }catch(e){}
+  try{ return localStorage.getItem("de_rckey")||"" }catch(e){ return "" }
+}
+async function rcGet(path,params){
+  var qs=new URLSearchParams(params).toString(), k=rcKey(), h={accept:"application/json"};
+  if(k) h["X-Api-Key"]=k;
+  var r=null;
+  if(location.protocol!=="file:"){ try{ r=await fetch("/api/rentcast"+path+"?"+qs,{headers:h,credentials:"same-origin"}) }catch(e){ r=null } }
+  if(!r||r.status===404){
+    if(!k) throw new Error("no RentCast key — set RENTCAST_KEY on Render, or paste one under RentCast values");
+    r=await fetch("https://api.rentcast.io/v1"+path+"?"+qs,{headers:h});
+  }
+  var t=await r.text(), j=null; try{ j=JSON.parse(t) }catch(e){}
+  if(!r.ok) throw new Error((j&&(j.error||j.message))||("RentCast answered "+r.status));
+  return j;
+}
+function rcAddress(p){
+  var c=p.city||cityName()||"";
+  return [p.address,c,"TX"+(p.zip?" "+p.zip:"")].filter(Boolean).join(", ");
+}
+async function pullRC(p,stat){
+  var V=VAL[p.vk]=VAL[p.vk]||{};
+  var say=function(m,c){ if(stat){ stat.className="status"+(c?" "+c:""); stat.innerHTML=m } };
+  say('<span class="spin"></span>Asking RentCast…');
+  try{
+    var base={address:rcAddress(p),propertyType:"Single Family",squareFootage:Math.round(p.sqft)||"",compCount:10};
+    if(!base.squareFootage) delete base.squareFootage;
+    var v=await rcGet("/avm/value",base);
+    if(v&&v.price){ V.rcValue=Math.round(v.price); V.rcLow=Math.round(v.priceRangeLow||0); V.rcHigh=Math.round(v.priceRangeHigh||0);
+                    V.rcComps=(v.comparables||[]).length }
+    var rt=null; try{ rt=await rcGet("/avm/rent/long-term",base) }catch(e){}
+    if(rt&&rt.rent) V.rcRent=Math.round(rt.rent);
+    V.rcAt=new Date().toISOString().slice(0,10);
+    saveVal(); rerender(p.vk);
+  }catch(e){ say("RentCast failed: "+String(e.message||e),"err") }
+}
+
+/* ---- packages ----------------------------------------------------------------
+   One owner holding adjacent doors — bought on one deed, or lots side by side
+   in the same block — is one seller and one negotiation. The roll lists them
+   as unrelated rows, so they used to show up as three separate leads ranked
+   wherever they fell. Grouped, you see the portfolio and make one offer. */
+function legalParts(s){
+  var t=String(s||"").toUpperCase().replace(/\s+/g," ").trim(); if(!t) return null;
+  var i=t.search(/\bLOTS?\b/);
+  var sub=(i>0?t.slice(0,i):t).replace(/[ ,.]+$/,"").trim();
+  var bm=t.match(/\b(?:BLK|BLOCK)\.?\s*([A-Z0-9-]+)/);
+  var lots=[];
+  if(i>=0){
+    var seg=t.slice(i).replace(/\b(?:BLK|BLOCK)\b.*$/,"");
+    var re=/(\d+)\s*(?:-|TO|THRU)\s*(\d+)|(\d+)/g, m;
+    while((m=re.exec(seg))){
+      if(m[1]){ var a=+m[1], b=+m[2]; if(b>=a&&b-a<60) for(var n=a;n<=b;n++) lots.push(n) }
+      else lots.push(+m[3]);
+    }
+  }
+  /* "S1/2", "50'" and the like are dimensions, not lot numbers */
+  lots=lots.filter(function(n,k){ return n>0&&n<5000&&lots.indexOf(n)===k });
+  return {sub:sub,blk:bm?bm[1]:"",lots:lots};
+}
+function ownerNorm(o){
+  var t=String(o||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ")
+    .replace(/\b(LLC|L L C|INC|LP|LTD|CO|CORP|COMPANY|THE|ETAL|ET AL|TRUST|TR)\b/g," ")
+    .replace(/\s+/g," ").trim();
+  return /^(UNKNOWN|NONE|N A)?$/.test(t)?"":t;
+}
+function compactLots(a){
+  a=a.slice().sort(function(x,y){return x-y}); var out=[], s=null, p=null;
+  a.forEach(function(n){ if(s===null){s=p=n}else if(n===p+1){p=n}else{out.push(s===p?s:s+"–"+p); s=p=n} });
+  if(s!==null) out.push(s===p?s:s+"–"+p);
+  return out.join(", ");
+}
+function buildPackages(all){
+  all.forEach(function(p){ p.pkg=null });
+  var by={};
+  all.forEach(function(p){ var k=ownerNorm(p.owner); if(k) (by[k]=by[k]||[]).push(p) });
+  var pkgs=[];
+  Object.keys(by).forEach(function(k){
+    var g=by[k]; if(g.length<2||g.length>400) return;
+    var par=g.map(function(_,i){return i});
+    var find=function(i){ while(par[i]!==i){ par[i]=par[par[i]]; i=par[i] } return i };
+    var why={};
+    g.forEach(function(p){ p._lg=p._lg||legalParts(p.legal) });
+    for(var i=0;i<g.length;i++) for(var j=i+1;j<g.length;j++){
+      var a=g[i], b=g[j], r="";
+      var da=a.deed&&a.deed.num, db=b.deed&&b.deed.num;
+      if(da&&da===db) r="deed";
+      else if(a._lg&&b._lg&&a._lg.sub&&a._lg.sub===b._lg.sub&&a._lg.blk===b._lg.blk&&
+              a._lg.lots.some(function(x){return b._lg.lots.some(function(y){return Math.abs(x-y)<=1})})) r="lots";
+      else if(isFinite(a.lat)&&isFinite(b.lat)&&a.lat!==null&&b.lat!==null){
+        var dy=(a.lat-b.lat)*110540, dx=(a.lon-b.lon)*111320*Math.cos(a.lat*Math.PI/180);
+        if(Math.sqrt(dx*dx+dy*dy)<45) r="next";
+      }
+      if(r){ var x=find(i), y=find(j); if(x!==y) par[x]=y; why[i]=why[i]||{}; why[i][r]=1; why[j]=why[j]||{}; why[j][r]=1 }
+    }
+    var groups={};
+    g.forEach(function(p,i){ var root=find(i); (groups[root]=groups[root]||[]).push(i) });
+    Object.keys(groups).forEach(function(root){
+      var ix=groups[root]; if(ix.length<2) return;
+      var m=ix.map(function(i){return g[i]});
+      var rs={}; ix.forEach(function(i){ for(var q in (why[i]||{})) rs[q]=1 });
+      pkgs.push(makePkg(m,rs));
+    });
+  });
+  pkgs.sort(function(a,b){ return b.score-a.score || b.n-a.n });
+  pkgs.forEach(function(k,i){ k.id=i; k.members.forEach(function(p){ p.pkg=k }) });
+  return pkgs;
+}
+function makePkg(m,rs){
+  var sum=function(f){ return m.reduce(function(t,p){return t+nz(f(p))},0) };
+  var num=m[0].deed&&m[0].deed.num;
+  var sameDeed=!!num&&m.every(function(p){return p.deed&&p.deed.num===num});
+  var lg=m.map(function(p){return p._lg});
+  var oneSub=lg.every(function(l){return l&&l.sub&&l.sub===lg[0].sub&&l.blk===lg[0].blk});
+  var label=oneSub
+    ? titleCase(lg[0].sub)+(lg[0].blk?" Blk "+lg[0].blk:"")+
+      (function(){ var all=[]; lg.forEach(function(l){all=all.concat(l.lots)}); return all.length?" · Lot"+(all.length>1?"s ":" ")+compactLots(all):"" })()
+    : m.map(function(p){return p.address}).slice(0,3).join(" · ")+(m.length>3?" …":"");
+  var sq=m.map(function(p){return nz(p.sqft)}).filter(Boolean), yr=m.map(function(p){return nz(p.year)}).filter(Boolean);
+  var alike=sq.length===m.length&&Math.max.apply(null,sq)/Math.min.apply(null,sq)<=1.12&&
+            (!yr.length||Math.max.apply(null,yr)-Math.min.apply(null,yr)<=3);
+  var reasons=[];
+  if(sameDeed) reasons.push("bought on one deed"+(m[0].deed.date?" "+m[0].deed.date:""));
+  if(rs.lots) reasons.push("adjacent lots");
+  if(rs.next&&!rs.lots) reasons.push("next door to each other");
+  if(alike) reasons.push("nearly identical houses");
+  var sc=m.reduce(function(t,p){return t+nz(p.score)},0)/m.length;
+  return {members:m.slice().sort(function(a,b){return (a._lg&&a._lg.lots[0]||0)-(b._lg&&b._lg.lots[0]||0)}),
+    n:m.length, owner:m[0].owner, label:label, sameDeed:sameDeed, alike:alike, reasons:reasons,
+    cad:sum(function(p){return p.cad}), offer:sum(function(p){return Math.max(0,p.offer)}),
+    rent:sum(function(p){return p.rent}), sqft:sum(function(p){return p.sqft}),
+    vc:sum(function(p){return p.vc&&p.vc.mid}), score:sc,
+    absentee:m.every(function(p){return String(p.absentee).toUpperCase()==="Y"})};
+}
+var PKSHOW=6;
+function packagesCard(pkgs){
+  if(!pkgs.length) return "";
+  var h='<div class="card pkgc"><h3>Packages <span class="tag">'+pkgs.length+' · one owner, adjacent doors</span></h3>'+
+    '<div class="note">Same owner and bought on one deed, side-by-side lots, or next door. One seller, one '+
+    'conversation — value and offer them together. Tap a door to open it below.</div>';
+  pkgs.slice(0,PKSHOW).forEach(function(k){
+    var cls=k.score>=65?"good":k.score>=45?"warn":"bad";
+    h+='<div class="pk"><div class="pt"><span>'+k.n+' doors · '+(k.owner||"—")+'</span>'+
+       '<span class="sc '+cls+'">'+Math.round(k.score)+' avg</span></div>'+
+       '<div class="ps">'+k.label+'</div>'+
+       (k.reasons.length?'<div class="ps">'+k.reasons.join(" · ")+(k.absentee?" · no homestead on any":"")+'</div>':'')+
+       '<div class="kv" style="margin:9px 0 6px">'+
+       '<div><div class="k">County, all</div><div class="v">'+money(k.cad)+'</div></div>'+
+       (k.vc&&Math.abs(k.vc-k.cad)>1000?'<div><div class="k">Value check, all</div><div class="v">'+money(k.vc)+'</div></div>':'')+
+       '<div><div class="k">Walk-in, all</div><div class="v pos">'+money(k.offer)+'</div></div>'+
+       '<div><div class="k">Rent, all</div><div class="v">'+money(k.rent)+'/mo</div></div>'+
+       '<div><div class="k">Per door</div><div class="v">'+money(k.cad/k.n)+'</div></div>'+
+       '</div><div class="pm">'+
+       k.members.map(function(p){ return '<button class="phbtn" type="button" data-jump="'+p.vk+'">'+p.address+
+         ' · '+(p.offer>0?money(p.offer):"no deal")+'</button>' }).join("")+
+       '</div></div>';
+  });
+  if(pkgs.length>PKSHOW) h+='<button class="btn ghost sm" type="button" data-pkmore="1" style="margin-top:10px">Show all '+pkgs.length+'</button>';
+  return h+'</div>';
+}
+function pkgNote(p){
+  var k=p.pkg; if(!k) return "";
+  return '<div class="note"><b>Part of a '+k.n+'-door package</b> — '+k.label+'. '+
+    (k.reasons.length?k.reasons.join(", ")+'. ':'')+
+    'Combined county value '+money(k.cad)+', combined walk-in '+money(k.offer)+', '+money(k.rent)+'/mo rent. '+
+    'Pitch the owner on all of them at once.</div>';
+}
+
+function rerender(vk){
+  OPENKEY=vk||null;
+  if(PRE) PRE=PRE.map(function(x){ return (x.vk===vk&&x.raw&&x._o)?(analyse(x.raw,x._o)||x):x });
+  render(RAW,LABEL,false,RENDO,PRE);
+}
+
 /* ---- render ---- */
 var LIST=[], RENDO=null, PRE=null, SRCKEY="";
 var PAGES=3;                 /* 1,000 parcels a page; cheapest first */
@@ -985,7 +1275,8 @@ var FILTERS=[
   ["ck_out",  function(p){ return !!p.outoftown }, "Out-of-town owner"],
   ["ck_stamp",function(p){ return p.score>=45 }, "45+ score"],
   ["ck_cf",   function(p){ return p.cfMo>0 }, "Cash flows"],
-  ["ck_photo",function(p){ return isFinite(p.lat) && p.lat!==null }, "Has a photo"]
+  ["ck_photo",function(p){ return isFinite(p.lat) && p.lat!==null }, "Has a photo"],
+  ["ck_pkg",  function(p){ return !!p.pkg }, "In a package"]
 ];
 /* "0 of 3,000" with no explanation is the worst answer this app can give. The
    boxes AND together on purpose — "absentee AND cash flows" is the useful
@@ -1047,6 +1338,21 @@ function render(rows,label,jump,oOverride,pre){
      rather than forcing one model over the whole set — which silently dropped
      every parcel the chosen model could not handle. */
   var all=pre?pre.slice():rows.map(function(r){return analyse(r,o)}).filter(Boolean);
+  var PK=buildPackages(all);
+  /* The buy box's ARV $/sf is one number for the whole city. When it lands the
+     typical house BELOW the county's own as-is value, every offer is too low to
+     win — say so instead of quietly ranking nothing above 45. */
+  var arvChk="";
+  if(o.model!=="land"&&o.model!=="comm"){
+    var ratios=all.filter(function(p){return p.cad>0&&p.arv>0&&!nz((VAL[p.vk]||{}).useArv)})
+                  .map(function(p){return p.arv/p.cad});
+    var mr=median(ratios);
+    if(ratios.length>=5&&mr<0.95)
+      arvChk=' <b>Check your ARV $/sqft.</b> On the typical house here it comes out '+
+        Math.round((1-mr)*100)+'% <i>under</i> the county\u2019s as-is value \u2014 a finished house should be '+
+        'worth more than that, so these offers are probably too low to win. Small houses run a higher $/sf; '+
+        'open one and use <b>Value check</b>.';
+  }
   var on=activeFilters();
   /* every ticked box must hold, not any of them — otherwise "for sale" plus
      "absentee" would widen the list instead of narrowing it */
@@ -1080,19 +1386,22 @@ function render(rows,label,jump,oOverride,pre){
     '<div class="note'+(live.length?' good':' warn')+'">'+
     (live.length? '<b>'+live.length+' of '+out.length+'</b> clear a 45+ score. Start at the top and work down — that order is spread, rehab risk, margin and rental fallback combined.'
                 : 'Nothing here clears 45. That usually means your ARV $/sqft is too low or the rehab number too high for this stock — check those two first.')+
-    '</div><div class="res" id="res"></div></div>';
+    arvChk+'</div><div class="res" id="res"></div></div>';
+  if(PK.length) box.innerHTML=packagesCard(PK)+box.innerHTML;
   var res=$("res");
   out.forEach(function(p,i){
     var cls=p.score>=65?"good":p.score>=45?"warn":"bad";
     var d=document.createElement("div");
     d.className="deal"+(i===0&&p.score>=45?" t1":"");
+    if(p.vk) d.setAttribute("data-k",p.vk);
     d.innerHTML=
       '<div class="dhead">'+
       (p.lat ? '<div class="tw">'+aerial(p.lat,p.lon,18,52,52,"thumb")+'<i class="rk">'+(i+1)+'</i></div>'
              : '<div class="rank">'+(i+1)+'</div>')+
       '<div class="dmain"><div class="addr"><span class="at">'+p.address+'</span>'+
         (p.flag&&p.flag.sale?'<span class="fl sale">FOR SALE</span>':'')+
-        (p.flag&&p.flag.tax?'<span class="fl tax">TAX SALE</span>':'')+'</div>'+
+        (p.flag&&p.flag.tax?'<span class="fl tax">TAX SALE</span>':'')+
+        (p.pkg?'<span class="fl pkg">PKG \u00d7'+p.pkg.n+'</span>':'')+'</div>'+
       '<div class="sub">'+(p.kind==="land"
           ? p.acres.toFixed(2)+' acres'
           : Math.round(p.sqft).toLocaleString()+' sf')+
@@ -1108,6 +1417,7 @@ function render(rows,label,jump,oOverride,pre){
             '<span class="phcred">Imagery \u00a9 Esri, Maxar</span>'+
           '</div></div>':'')+
         kvBlock(p)+
+        pkgNote(p)+
         (p.flag&&p.flag.sale?
           '<div class="note warn"><b>Listed for sale at '+money(p.flag.sale.price)+'</b>'+
           (p.flag.sale.days?' · '+p.flag.sale.days+' days on market':'')+
@@ -1140,6 +1450,7 @@ function render(rows,label,jump,oOverride,pre){
         (p.mail?'<div class="led"><span class="l">Mail to</span><b style="font-family:inherit;font-weight:600">'+p.mail+'</b></div>':"")+
         (p.exempt?'<div class="led"><span class="l">Exemptions</span><b style="font-family:inherit;font-weight:600">'+p.exempt+'</b></div>':"")+
         '<div class="why">'+whyText(p)+'</div>'+
+        valueBlock(p)+
         titleBlock(p)+
         (p.link?'<a class="cadlink" href="'+p.link+'" target="_blank" rel="noopener">Open the county record \u2197</a>':"")+
       '</div>';
@@ -1156,9 +1467,47 @@ function render(rows,label,jump,oOverride,pre){
       if(!was&&p.lat) tuneSV(d,p.lat,p.lon);
     };
     res.appendChild(d);
+    if(OPENKEY&&p.vk===OPENKEY){ d.classList.add("open"); if(p.lat) tuneSV(d,p.lat,p.lon) }
   });
+  OPENKEY=null;
   if(jump) window.scrollTo({top:$("results").offsetTop-60,behavior:"smooth"});
 }
+/* one set of listeners for everything inside the results, because the rows are
+   rebuilt on every render */
+(function(){
+  var R=$("results");
+  var rowFor=function(k){ var ds=R.querySelectorAll(".deal[data-k]");
+    for(var i=0;i<ds.length;i++) if(ds[i].getAttribute("data-k")===k) return ds[i]; return null };
+  var pFor=function(k){ for(var i=0;i<LIST.length;i++) if(LIST[i].vk===k) return LIST[i]; return null };
+  R.addEventListener("click",function(e){
+    var t=e.target&&e.target.closest?e.target:null; if(!t) return;
+    var j=t.closest("[data-jump]");
+    if(j){
+      var row=rowFor(j.getAttribute("data-jump"));
+      if(!row){ alert("That door is hidden by a filter above \u2014 untick it to see it."); return }
+      if(!row.classList.contains("open")){ row.classList.add("open"); var q=pFor(j.getAttribute("data-jump")); if(q&&q.lat) tuneSV(row,q.lat,q.lon) }
+      window.scrollTo({top:row.getBoundingClientRect().top+window.scrollY-70,behavior:"smooth"});
+      return;
+    }
+    if(t.closest("[data-pkmore]")){ PKSHOW=1e9; rerender(null); return }
+    var b=t.closest("[data-vc]"); if(!b) return;
+    e.stopPropagation();
+    var k=b.getAttribute("data-k"), act=b.getAttribute("data-vc"), p=pFor(k); if(!p) return;
+    if(act==="rc"){ pullRC(p,R.querySelector('[data-vcs="'+k.replace(/"/g,'')+'"]')); return }
+    if(act==="arv"){ VAL[k]=VAL[k]||{}; VAL[k].useArv=nz(b.getAttribute("data-v")); saveVal(); rerender(k); return }
+    if(act==="reset"){ delete VAL[k]; saveVal(); rerender(k); return }
+  });
+  R.addEventListener("change",function(e){
+    var t=e.target; if(!t||!t.getAttribute||!t.getAttribute("data-vcin")) return;
+    var k=t.getAttribute("data-k"), f=t.getAttribute("data-vcin");
+    var raw=String(t.value).replace(/[$,\s]/g,""), mul=/k$/i.test(raw)?1000:1;
+    var v=Math.round((parseFloat(raw)||0)*mul);
+    VAL[k]=VAL[k]||{};
+    if(v>0) VAL[k][f]=v; else delete VAL[k][f];
+    if(!Object.keys(VAL[k]).length) delete VAL[k];
+    saveVal(); rerender(k);
+  });
+})();
 function clearList(){
   LIST=[]; RAW=[]; $("results").innerHTML=""; $("cnt").textContent="";
   $("filterCard").style.display="none";
@@ -1320,6 +1669,7 @@ var SRC={
    f:{addr:"situs",owner:"name",mail:"addrDeliveryLine",mailcity:"addrCity",mailstate:"addrState",
       mailzip:"addrZip",sqft:"imprvMainArea",year:"imprvActualYearBuilt",cad:"marketValue",
       cls:"stateCd",exempt:"exemptions",pid:"PROP_ID",geo:"geoID",unit:"taxingUnits",
+      legal:"legalDescription",
       deed:{date:"deedDt",type:"deedType",num:"instrumentNum"}},
    link:function(pid){return "https://hidalgo.prodigycad.com/property-detail/"+pid},
    classes:"'A1','A2'",
@@ -1327,7 +1677,7 @@ var SRC={
       roll: A1 A2 A6 B1 B2 C1 C2 D1 D2 D9 E E1 E2 E3 F1 F5 G3 J1-J7 M1 M3 O1 */
    types:{house:"'A1','A6'", mobile:"'A2'", multi:"'B1','B2'",
           land:"'C1','C2','D1','D2','D9','E','E1','E2','E3','O1'", comm:"'F1','F5'"},
-   f2:{acres:"landTotalAcres", landval:"landValue", imprval:"improvementValue"},
+   f2:{acres:"landTotalAcres", landsqft:"landSizeSq", landval:"landValue", imprval:"improvementValue"},
    order:"marketValue ASC",
    centroid:true,
    /* City is not reliable inside the situs string here \u2014 about a quarter of
@@ -1886,6 +2236,19 @@ $("ncSave").onclick=function(){
   ncStat("Saved. <b>"+$("nc_county").value.trim()+" County</b> is in the County dropdown now.","ok");
 };
 
+(function(){
+  var k=rcKey(); if(k) $("rc_key").value=k;
+  $("rcStatus").textContent = k ? "Key saved on this device." : "";
+  $("rcSave").onclick=function(){
+    var v=$("rc_key").value.trim();
+    try{ localStorage.setItem("de_rckey",v) }catch(e){}
+    $("rcStatus").className="status ok"; $("rcStatus").textContent = v ? "Saved." : "Cleared.";
+  };
+  $("rcClear").onclick=function(){
+    try{ localStorage.removeItem("de_rckey") }catch(e){}
+    $("rc_key").value=""; $("rcStatus").className="status"; $("rcStatus").textContent="Removed.";
+  };
+})();
 (function(){
   var k=svKey(); if(k) $("sv_key").value=k;
   $("svStatus").textContent = k ? "Key saved. Street photos are on." : "";

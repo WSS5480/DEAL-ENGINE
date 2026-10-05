@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const BUILD = '2026-09-02.6';
+const BUILD = '2026-10-05.1';
 const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const ROOT = __dirname;
 
@@ -559,6 +559,25 @@ const server = http.createServer(async (req, res) => {
       expires_on: plan.expires_on,
       accounts_reachable: !plan.unknown
     });
+  }
+
+  /* RentCast, proxied. Keeps the key on the server (RENTCAST_KEY) and keeps the
+     browser out of CORS. Only the two valuation calls the Finder uses pass. */
+  if (p.startsWith('/api/rentcast/')) {
+    if (!email) return json(res, 401, { error: 'Not signed in' });
+    const sub = p.slice('/api/rentcast'.length);
+    if (!['/avm/value', '/avm/rent/long-term'].includes(sub)) return json(res, 400, { error: 'Not an allowed RentCast call' });
+    const key = process.env.RENTCAST_KEY || String(req.headers['x-api-key'] || '');
+    if (!key) return json(res, 400, { error: 'No RentCast key — set RENTCAST_KEY on Render, or paste one under RentCast values' });
+    try {
+      const r = await fetch('https://api.rentcast.io/v1' + sub + url.search, {
+        headers: { 'X-Api-Key': key, accept: 'application/json' },
+        signal: AbortSignal.timeout(15000)
+      });
+      return send(res, r.status, await r.text(), { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    } catch (e) {
+      return json(res, 502, { error: 'RentCast did not answer: ' + e.message });
+    }
   }
 
   const page = PAGES[p];
